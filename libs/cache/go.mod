@@ -1,4 +1,4 @@
-module github.com/himdhiman/dashboard-backend/libs/redis_cache
+module github.com/himdhiman/dashboard-backend/libs/cache/redis_cache
 
 go 1.22.2
 
