@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	"github.com/himdhiman/dashboard-backend/libs/redis_cache"
+	"github.com/himdhiman/dashboard-backend/libs/cache"
 )
 
-func RateLimiterMiddleware(redisClient *redis_cache.Client, logger logger.Logger, serviceName string) func(http.Handler) http.Handler {
+func RateLimiterMiddleware(redisClient *cache.Client, logger logger.Logger, serviceName string) func(http.Handler) http.Handler {
 	limiterService := NewRateLimiter(redisClient, logger)
 
 	return func(next http.Handler) http.Handler {

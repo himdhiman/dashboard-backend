@@ -1,4 +1,3 @@
-// internal/limiter/worker.go
 package limiter
 
 import (
@@ -7,16 +6,16 @@ import (
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
-	"github.com/himdhiman/dashboard-backend/libs/redis_cache"
+	"github.com/himdhiman/dashboard-backend/libs/cache"
 )
 
 type ConfigSyncWorker struct {
 	mongoClient *mongo.Client
-	redisClient *redis_cache.Client
+	redisClient *cache.Client
 	logger      logger.Logger
 }
 
-func NewConfigSyncWorker(mongoClient *mongo.Client, redisClient *redis_cache.Client, logger logger.Logger) *ConfigSyncWorker {
+func NewConfigSyncWorker(mongoClient *mongo.Client, redisClient *cache.Client, logger logger.Logger) *ConfigSyncWorker {
 	return &ConfigSyncWorker{mongoClient: mongoClient, redisClient: redisClient, logger: logger}
 }
 

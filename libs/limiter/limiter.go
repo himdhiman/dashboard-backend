@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	"github.com/himdhiman/dashboard-backend/libs/redis_cache"
+	"github.com/himdhiman/dashboard-backend/libs/cache"
 )
 
 type RateLimiter struct {
-	redisClient *redis_cache.Client
+	redisClient *cache.Client
 	logger      logger.Logger
 }
 
-func NewRateLimiter(redisClient *redis_cache.Client, logger logger.Logger) *RateLimiter {
+func NewRateLimiter(redisClient *cache.Client, logger logger.Logger) *RateLimiter {
 	return &RateLimiter{redisClient: redisClient, logger: logger}
 }
 
