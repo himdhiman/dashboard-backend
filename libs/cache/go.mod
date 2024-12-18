@@ -5,7 +5,6 @@ go 1.22.2
 require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20241218052858-2f8483cbcb4a
-	github.com/sirupsen/logrus v1.9.3
 )
 
 require (
