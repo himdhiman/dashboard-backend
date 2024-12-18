@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
+
+	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
 
 type TestDocument struct {
@@ -18,9 +20,10 @@ type TestDocument struct {
 func setupTestRepository() (*Repository, *MongoDB, func()) {
 	mongoURI := "mongodb://localhost:27017"
 	dbName := "testDB"
+	logger := logger.New(logger.DefaultConfig())
 
 	// Initialize MongoDB
-	mongoClient, _ := NewMongoDB(mongoURI, dbName)
+	mongoClient, _ := NewMongoDB(mongoURI, dbName, logger)
 
 	// Create test repository
 	repo := NewRepository(mongoClient.Db, "testCollection")

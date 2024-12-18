@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/sirupsen/logrus"
+	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
 
 // CacheClient implements the Cacher interface with logging
@@ -14,22 +14,22 @@ type CacheClient struct {
 	client         *redis.Client
 	defaultTimeout time.Duration
 	prefix         string
-	logger         *logrus.Logger
+	logger         logger.LoggerInterface
 }
 
 // NewCacheClient creates a new Redis cache client with optional configurations
 func NewCacheClient(
-	host string, 
-	port int, 
-	password string, 
-	db int, 
-	logger *logrus.Logger,
+	host string,
+	port int,
+	password string,
+	db int,
+	loggerInstance logger.LoggerInterface,
 	options ...CacheOption,
 ) *CacheClient {
 	// Validate logger
-	if logger == nil {
-		logger = logrus.New()
-		logger.Warning("No logger provided, using default logger")
+	if loggerInstance == nil {
+		loggerInstance = logger.New(logger.DefaultConfig())
+		loggerInstance.Warn("No logger provided, using default logger")
 	}
 
 	// Create Redis client configuration
@@ -43,8 +43,8 @@ func NewCacheClient(
 	cache := &CacheClient{
 		client:         rdb,
 		defaultTimeout: 1 * time.Hour, // Default timeout
-		prefix:         "app:", // Default prefix
-		logger:         logger,
+		prefix:         "app:",        // Default prefix
+		logger:         loggerInstance,
 	}
 
 	// Apply optional configurations
@@ -53,7 +53,7 @@ func NewCacheClient(
 	}
 
 	// Log cache client initialization
-	cache.logger.WithFields(logrus.Fields{
+	cache.logger.WithFields(logger.Fields{
 		"host":     host,
 		"port":     port,
 		"database": db,
@@ -72,16 +72,16 @@ func (c *CacheClient) buildKey(key string) string {
 func (c *CacheClient) Ping(ctx context.Context) error {
 	start := time.Now()
 	err := c.client.Ping(ctx).Err()
-	
+
 	if err != nil {
-		c.logger.WithFields(logrus.Fields{
+		c.logger.WithFields(logger.Fields{
 			"error":    err,
 			"duration": time.Since(start),
 		}).Error("Redis ping failed")
 		return err
 	}
 
-	c.logger.WithField("duration", time.Since(start)).Debug("Redis ping successful")
+	c.logger.WithFields(logger.Fields{"duration": time.Since(start)}).Debug("Redis ping successful")
 	return nil
 }
 
@@ -92,9 +92,9 @@ func (c *CacheClient) Close() error {
 }
 
 // getLogFields creates standard logging fields for cache operations
-func (c *CacheClient) getLogFields(key string) *logrus.Entry {
-	return c.logger.WithFields(logrus.Fields{
-		"prefix": c.prefix,
-		"key":    key,
-	})
+func (c *CacheClient) getLogFields(key string) logger.Fields {
+	return logger.Fields{
+			"key":    key,
+			"prefix": c.prefix,
+		}
 }
