@@ -10,11 +10,11 @@ import (
 )
 
 type RateLimiter struct {
-	redisClient *cache.Client
+	redisClient *cache.CacheClient
 	logger      logger.Logger
 }
 
-func NewRateLimiter(redisClient *cache.Client, logger logger.Logger) *RateLimiter {
+func NewRateLimiter(redisClient *cache.CacheClient, logger logger.Logger) *RateLimiter {
 	return &RateLimiter{redisClient: redisClient, logger: logger}
 }
 
@@ -42,8 +42,8 @@ func (r *RateLimiter) applyRateLimit(ctx context.Context, config EndpointConfig)
 	switch config.Algorithm {
 	case FixedWindow:
 		return r.fixedWindow(ctx, config.Endpoint, config)
-	case SlidingWindow:
-		return r.slidingWindow(ctx, config.Endpoint, config)
+	// case SlidingWindow:
+	// 	return r.slidingWindow(ctx, config.Endpoint, config)
 	case TokenBucket:
 		return r.tokenBucket(ctx, config.Endpoint, config)
 	case LeakyBucket:
@@ -55,13 +55,13 @@ func (r *RateLimiter) applyRateLimit(ctx context.Context, config EndpointConfig)
 
 func (r *RateLimiter) fixedWindow(ctx context.Context, key string, config EndpointConfig) (bool, error) {
 	windowKey := "fixed_window:" + key
-	currentCount, err := r.redisClient.Increment(ctx, windowKey, 1, config.TimeWindow)
+	currentCount, err := r.redisClient.Increment(ctx, windowKey)
 	if err != nil {
 		r.logger.Error("Fixed Window Error:", err)
 		return false, err
 	}
 
-	if currentCount > config.MaxRequests {
+	if currentCount > int64(config.MaxRequests) {
 		r.logger.Warn("Fixed Window Limit Exceeded for:", key)
 		return false, nil
 	}
@@ -69,42 +69,42 @@ func (r *RateLimiter) fixedWindow(ctx context.Context, key string, config Endpoi
 	return true, nil
 }
 
-func (r *RateLimiter) slidingWindow(ctx context.Context, key string, config EndpointConfig) (bool, error) {
-	windowKey := "sliding_window:" + key
-	currentTime := time.Now().Unix()
-	startTime := currentTime - int64(config.TimeWindow.Seconds())
+// func (r *RateLimiter) slidingWindow(ctx context.Context, key string, config EndpointConfig) (bool, error) {
+// 	windowKey := "sliding_window:" + key
+// 	currentTime := time.Now().Unix()
+// 	startTime := currentTime - int64(config.TimeWindow.Seconds())
 
-	// Add current timestamp to the sorted set
-	err := r.redisClient.ZAdd(ctx, windowKey, float64(currentTime), currentTime)
-	if err != nil {
-		r.logger.Error("Sliding Window Error:", err)
-		return false, err
-	}
+// 	// Add current timestamp to the sorted set
+// 	err := r.redisClient.Set(ctx, windowKey, float64(currentTime))
+// 	if err != nil {
+// 		r.logger.Error("Sliding Window Error:", err)
+// 		return false, err
+// 	}
 
-	// Remove timestamps outside the window
-	err = r.redisClient.ZRemRangeByScore(ctx, windowKey, 0, float64(startTime))
-	if err != nil {
-		r.logger.Error("Sliding Window Cleanup Error:", err)
-		return false, err
-	}
+// 	// Remove timestamps outside the window
+// 	err = r.redisClient.ZRemRangeByScore(ctx, windowKey, 0, float64(startTime))
+// 	if err != nil {
+// 		r.logger.Error("Sliding Window Cleanup Error:", err)
+// 		return false, err
+// 	}
 
-	// Get the current count
-	count, err := r.redisClient.ZCount(ctx, windowKey, float64(startTime), float64(currentTime))
-	if err != nil {
-		r.logger.Error("Sliding Window Count Error:", err)
-		return false, err
-	}
+// 	// Get the current count
+// 	count, err := r.redisClient.ZCount(ctx, windowKey, float64(startTime), float64(currentTime))
+// 	if err != nil {
+// 		r.logger.Error("Sliding Window Count Error:", err)
+// 		return false, err
+// 	}
 
-	if int(count) > config.MaxRequests {
-		r.logger.Warn("Sliding Window Limit Exceeded for:", key)
-		return false, nil
-	}
+// 	if int(count) > config.MaxRequests {
+// 		r.logger.Warn("Sliding Window Limit Exceeded for:", key)
+// 		return false, nil
+// 	}
 
-	// Set expiration for the key
-	r.redisClient.Expire(ctx, windowKey, config.TimeWindow)
+// 	// Set expiration for the key
+// 	r.redisClient.Expire(ctx, windowKey, config.TimeWindow)
 
-	return true, nil
-}
+// 	return true, nil
+// }
 
 func (r *RateLimiter) tokenBucket(ctx context.Context, key string, config EndpointConfig) (bool, error) {
 	bucketKey := "token_bucket:" + key
@@ -113,12 +113,14 @@ func (r *RateLimiter) tokenBucket(ctx context.Context, key string, config Endpoi
 	refillRate := float64(maxTokens) / config.TimeWindow.Seconds()
 
 	// Get the current token count and last refill time
-	tokenCount, err := r.redisClient.GetInt(ctx, bucketKey)
+	var tokenCount int
+	err := r.redisClient.Get(ctx, bucketKey, &tokenCount)
 	if err != nil {
 		tokenCount = maxTokens // Initialize the bucket if not present
 	}
 
-	lastRefill, err := r.redisClient.GetInt(ctx, lastRefillKey)
+	var lastRefill int
+	err = r.redisClient.Get(ctx, lastRefillKey, &lastRefill)
 	if err != nil {
 		lastRefill = int(time.Now().Unix())
 	}
@@ -130,13 +132,13 @@ func (r *RateLimiter) tokenBucket(ctx context.Context, key string, config Endpoi
 	tokenCount = min(maxTokens, tokenCount+refilledTokens)
 
 	// Save the updated token count and last refill time
-	err = r.redisClient.SetInt(ctx, bucketKey, tokenCount, config.TimeWindow)
+	err = r.redisClient.Set(ctx, bucketKey, tokenCount, config.TimeWindow)
 	if err != nil {
 		r.logger.Error("Token Bucket Save Error:", err)
 		return false, err
 	}
 
-	err = r.redisClient.SetInt(ctx, lastRefillKey, int(currentTime), config.TimeWindow)
+	err = r.redisClient.Set(ctx, lastRefillKey, int(currentTime), config.TimeWindow)
 	if err != nil {
 		r.logger.Error("Token Bucket Last Refill Save Error:", err)
 		return false, err
@@ -149,7 +151,7 @@ func (r *RateLimiter) tokenBucket(ctx context.Context, key string, config Endpoi
 	}
 
 	// Deduct a token for the request
-	err = r.redisClient.Decrement(ctx, bucketKey)
+	_, err = r.redisClient.Decrement(ctx, bucketKey)
 	if err != nil {
 		r.logger.Error("Token Bucket Deduction Error:", err)
 		return false, err
@@ -165,12 +167,14 @@ func (r *RateLimiter) leakyBucket(ctx context.Context, key string, config Endpoi
 	leakRate := float64(maxCapacity) / config.TimeWindow.Seconds()
 
 	// Get the current bucket size and last leak time
-	bucketSize, err := r.redisClient.GetInt(ctx, bucketKey)
+	var bucketSize int
+	err := r.redisClient.Get(ctx, bucketKey, &bucketSize)
 	if err != nil {
 		bucketSize = 0 // Initialize the bucket if not present
 	}
 
-	lastLeak, err := r.redisClient.GetInt(ctx, lastLeakKey)
+	var lastLeak int
+	err = r.redisClient.Get(ctx, lastLeakKey, &lastLeak)
 	if err != nil {
 		lastLeak = int(time.Now().Unix())
 	}
@@ -182,13 +186,13 @@ func (r *RateLimiter) leakyBucket(ctx context.Context, key string, config Endpoi
 	bucketSize = max(0, bucketSize-leakedTokens)
 
 	// Save the updated bucket size and last leak time
-	err = r.redisClient.SetInt(ctx, bucketKey, bucketSize, config.TimeWindow)
+	err = r.redisClient.Set(ctx, bucketKey, bucketSize, config.TimeWindow)
 	if err != nil {
 		r.logger.Error("Leaky Bucket Save Error:", err)
 		return false, err
 	}
 
-	err = r.redisClient.SetInt(ctx, lastLeakKey, int(currentTime), config.TimeWindow)
+	err = r.redisClient.Set(ctx, lastLeakKey, int(currentTime), config.TimeWindow)
 	if err != nil {
 		r.logger.Error("Leaky Bucket Last Leak Save Error:", err)
 		return false, err
@@ -201,7 +205,7 @@ func (r *RateLimiter) leakyBucket(ctx context.Context, key string, config Endpoi
 	}
 
 	// Add a token for the new request
-	err = r.redisClient.Increment(ctx, bucketKey, 1, config.TimeWindow)
+	_, err = r.redisClient.Increment(ctx, bucketKey)
 	if err != nil {
 		r.logger.Error("Leaky Bucket Addition Error:", err)
 		return false, err

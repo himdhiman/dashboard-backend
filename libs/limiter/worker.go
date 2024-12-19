@@ -4,19 +4,22 @@ import (
 	"context"
 	"time"
 
+	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
-	"github.com/himdhiman/dashboard-backend/libs/cache"
 )
 
 type ConfigSyncWorker struct {
-	mongoClient *mongo.Client
-	redisClient *cache.Client
+	mongoRepo   *mongo.Repository[RateLimitConfig]
+	redisClient *cache.CacheClient
 	logger      logger.Logger
 }
 
-func NewConfigSyncWorker(mongoClient *mongo.Client, redisClient *cache.Client, logger logger.Logger) *ConfigSyncWorker {
-	return &ConfigSyncWorker{mongoClient: mongoClient, redisClient: redisClient, logger: logger}
+func NewConfigSyncWorker(mongoDatabaseName, mongoCollectionName string, redisClient *cache.CacheClient, logger logger.Logger) *ConfigSyncWorker {
+	repo := mongo.Repository[RateLimitConfig]{
+		Collection: mongo.GetCollection(mongoDatabaseName, mongoCollectionName),
+	}
+	return &ConfigSyncWorker{mongoRepo: &repo, redisClient: redisClient, logger: logger}
 }
 
 func (w *ConfigSyncWorker) Start(ctx context.Context) {
@@ -27,8 +30,7 @@ func (w *ConfigSyncWorker) Start(ctx context.Context) {
 }
 
 func (w *ConfigSyncWorker) syncConfigs(ctx context.Context) {
-	var configs []RateLimitConfig
-	err := w.mongoClient.Find(ctx, "rate_limit_configs", nil, &configs)
+	configs, err := w.mongoRepo.Find(ctx, "rate_limit_configs", nil)
 	if err != nil {
 		w.logger.Error("Failed to fetch rate limit configs:", err)
 		return

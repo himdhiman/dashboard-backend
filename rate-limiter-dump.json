@@ -1,0 +1,37 @@
+[
+  {
+    "_id": "rate_limiter_configs",
+    "defaults": [
+      {
+        "algorithm": "slidingWindow",
+        "request_limit": 100,
+        "window_duration": "1m",
+        "retry_after": "10s"
+      }
+    ],
+    "endpoints": [
+      {
+        "endpoint": "/api/v1/resourceA",
+        "algorithm": "fixedWindow",
+        "request_limit": 50,
+        "window_duration": "30s",
+        "retry_after": "5s"
+      },
+      {
+        "endpoint": "/api/v1/resourceB",
+        "algorithm": "tokenBucket",
+        "request_limit": 200,
+        "bucket_capacity": 200,
+        "refill_rate": 10,
+        "refill_interval": "1s"
+      },
+      {
+        "endpoint": "/api/v1/resourceC",
+        "algorithm": "leakyBucket",
+        "leak_rate": 5,
+        "leak_interval": "1s",
+        "bucket_capacity": 100
+      }
+    ]
+  }
+]

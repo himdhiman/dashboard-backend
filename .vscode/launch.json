@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Sentinel Service",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceRoot}/services/sentinel-service/main.go",
+            "env": {},
+            "args": [""]
+        }
+    ]
+}
