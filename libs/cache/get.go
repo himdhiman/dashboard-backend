@@ -8,7 +8,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Get retrieves a value from the cache
+// Get retrieves a value from the cache and deserialize it into the result type
 func (c *CacheClient) Get(
 	ctx context.Context, 
 	key string, 

@@ -17,12 +17,18 @@ type CacheClient struct {
 	logger         logger.LoggerInterface
 }
 
+type CacheConfig struct {
+	Host     string
+	Port     int
+	Password string
+	DB       int
+	Timeout  time.Duration
+	Prefix   string
+}
+
 // NewCacheClient creates a new Redis cache client with optional configurations
 func NewCacheClient(
-	host string,
-	port int,
-	password string,
-	db int,
+	config *CacheConfig,
 	loggerInstance logger.LoggerInterface,
 	options ...CacheOption,
 ) *CacheClient {
@@ -34,16 +40,16 @@ func NewCacheClient(
 
 	// Create Redis client configuration
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", host, port),
-		Password: password,
-		DB:       db,
+		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Password: config.Password,
+		DB:       config.DB,
 	})
 
 	// Create cache client
 	cache := &CacheClient{
 		client:         rdb,
-		defaultTimeout: 1 * time.Hour, // Default timeout
-		prefix:         "app:",        // Default prefix
+		defaultTimeout: config.Timeout * time.Hour,          // Default timeout
+		prefix:         fmt.Sprintf("%s:", config.Password), // Default prefix
 		logger:         loggerInstance,
 	}
 
@@ -54,9 +60,9 @@ func NewCacheClient(
 
 	// Log cache client initialization
 	cache.logger.WithFields(logger.Fields{
-		"host":     host,
-		"port":     port,
-		"database": db,
+		"host":     config.Host,
+		"port":     config.Port,
+		"database": config.DB,
 		"prefix":   cache.prefix,
 	}).Info("Redis cache client initialized")
 
@@ -94,7 +100,7 @@ func (c *CacheClient) Close() error {
 // getLogFields creates standard logging fields for cache operations
 func (c *CacheClient) getLogFields(key string) logger.Fields {
 	return logger.Fields{
-			"key":    key,
-			"prefix": c.prefix,
-		}
+		"key":    key,
+		"prefix": c.prefix,
+	}
 }

@@ -1,12 +1,16 @@
 [
   {
+    "api_name": "HEALTH",
     "endpoint": "/api/v1/health",
     "rate_limit": 5,
     "authorization": {
       "type": "BasicAuth",
       "oauth2": null,
       "basic_auth": {
-        "credentials": "{username : '21cf7c48f3b683ab31e2d53c94c6110f8816fcd1902b4ce21d2e729b12c10a885d293006', password: 'a8bd5be24b2b95b8f8fc213d874b8df536cd68cc1ca572e9664522cb5cd316d6f89aee27'}"
+        "credentials": {
+          "username": "21cf7c48f3b683ab31e2d53c94c6110f8816fcd1902b4ce21d2e729b12c10a885d293006",
+          "password": "a8bd5be24b2b95b8f8fc213d874b8df536cd68cc1ca572e9664522cb5cd316d6f89aee27"
+        }
       }
     }
   }

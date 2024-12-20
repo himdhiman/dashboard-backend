@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
@@ -35,5 +36,19 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	worker.StartConfigSync(collection, logger, 10)
+	cacheConfig := cache.CacheConfig{Host: "localhost", Port: 6379, Password: "", DB: 0, Timeout: 1, Prefix: "sentinel"}
+
+	cache := cache.NewCacheClient(&cacheConfig, logger)
+
+	ctx = context.Background()
+	err = cache.Ping(ctx)
+	if err != nil {
+		logger.Error("Failed to connect to Redis", "error", err)
+		return
+	}
+
+	worker.StartConfigSync(collection, cache, logger, 10)
+
+	// authMiddleware := middleware.NewAuthenticationMiddleware(cache, logger)
+
 }
