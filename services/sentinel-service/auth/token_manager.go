@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"sync"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
@@ -15,7 +14,7 @@ type TokenMetadata struct {
 }
 
 type TokenManager struct {
-	mu       sync.RWMutex
+	mutex    sync.RWMutex
 	cache    *cache.CacheClient
 	logger   logger.LoggerInterface
 	apiName  string
@@ -31,6 +30,6 @@ func NewTokenManager(cache *cache.CacheClient, logger logger.LoggerInterface, ap
 	}
 }
 
-func (tm *TokenManager) GetAccessToken(ctx context.Context) (string, error) {
-	cacheKey := tm.apiName + ":auth"
-}
+// func (tm *TokenManager) GetAccessToken(ctx context.Context) (string, error) {
+// 	cacheKey := tm.apiName + ":auth"
+// }

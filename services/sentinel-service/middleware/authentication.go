@@ -60,9 +60,8 @@ func (am *AuthenticationMiddleware) Authenticate(apiName string, next http.Handl
 	})
 }
 
-
 // applyAuth selects and applies the appropriate authentication method.
-func (am *AuthenticationMiddleware) applyAuth(r *http.Request, apiName, authType string) error {
+func (am *AuthenticationMiddleware) applyAuth(r *http.Request, apiName, authType models.AuthenticationType) error {
 	switch authType {
 	case models.OAUTH:
 		return am.handleOAuth2(r, apiName)
@@ -81,9 +80,8 @@ func (am *AuthenticationMiddleware) handleOAuth2(r *http.Request, apiName string
 	return nil
 }
 
-
 // handleBasicAuth applies Basic Authentication using credentials from cache.
-func (am *AuthenticationMiddleware) handleBasicAuth(r *http.Request, apiName string) error {
+func (am *AuthenticationMiddleware) handleBasicAuth(r *http.Request, apiName models.AuthenticationType) error {
 	var username, password string
 
 	if err := am.cacheGet(context.Background(), apiName+":username", &username); err != nil {
@@ -97,7 +95,6 @@ func (am *AuthenticationMiddleware) handleBasicAuth(r *http.Request, apiName str
 	r.SetBasicAuth(username, password)
 	return nil
 }
-
 
 // cacheExists checks if a key exists in cache.
 func (am *AuthenticationMiddleware) cacheExists(ctx context.Context, key string) (bool, error) {

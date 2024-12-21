@@ -66,14 +66,14 @@ func (b *BasicAuthStrategy) FetchTokens(ctx context.Context) (*TokenMetadata, er
 }
 
 // RefreshTokens refreshes access and refresh tokens using the provided refresh token.
-func (b *BasicAuthStrategy) RefreshTokens(ctx context.Context, refreshToken string) (string, string, time.Time, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.AuthURL+"/refresh", nil)
-	if err != nil {
-		b.Logger.Error("Error creating request for RefreshTokens", "error", err)
-		return "", "", time.Time{}, err
-	}
+// func (b *BasicAuthStrategy) RefreshTokens(ctx context.Context, refreshToken string) (string, string, time.Time, error) {
+// 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.AuthURL+"/refresh", nil)
+// 	if err != nil {
+// 		b.Logger.Error("Error creating request for RefreshTokens", "error", err)
+// 		return "", "", time.Time{}, err
+// 	}
 
-	req.SetBasicAuth(b.Username, b.Password)
-	
-	req.Header.Set("Authorization", "Bearer "+refreshToken)
-}
+// 	req.SetBasicAuth(b.Username, b.Password)
+
+// 	req.Header.Set("Authorization", "Bearer "+refreshToken)
+// }

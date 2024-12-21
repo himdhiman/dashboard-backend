@@ -9,31 +9,35 @@ import (
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 )
 
 func StartConfigSync(mongoCollection *mongo_models.MongoCollection, cache *cache.CacheClient, logger logger.LoggerInterface, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(interval * time.Second)
 	defer ticker.Stop()
 
 	mongoRepo := repository.Repository[models.APIConfig]{Collection: mongoCollection}
 
-	for {
-		select {
-		case <-ticker.C:
-			configSync(&mongoRepo, cache, logger)
+	// Run configSync immediately
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	configSync(ctx, &mongoRepo, cache, logger)
+	cancel()
+
+	go func() {
+		for range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+            configSync(ctx, &mongoRepo, cache, logger)
+            cancel()
 		}
-	}
+	}()
 }
 
-func configSync(mongoRepo *repository.Repository[models.APIConfig], cache *cache.CacheClient, logger logger.LoggerInterface) {
-	ctx := context.Background()
+func configSync(ctx context.Context, mongoRepo *repository.Repository[models.APIConfig], cache *cache.CacheClient, logger logger.LoggerInterface) {
 	filter := map[string]interface{}{}
 	configs, err := mongoRepo.Find(ctx, filter)
 	if err != nil {
-		// log error
-		return
+		logger.Error("Error fetching configs", "error", err)
+        return
 	}
 
 	for _, config := range configs {
@@ -42,20 +46,24 @@ func configSync(mongoRepo *repository.Repository[models.APIConfig], cache *cache
 		apiName := config.ApiName
 
 		endpointKey := apiName + ":endpoint"
+		pathKey := apiName + ":path"
+		methodKey := apiName + ":method"
 		rateLimitKey := apiName + ":rate_limit"
 		authTypeKey := apiName + ":auth_type"
 
-		cache.Set(ctx, endpointKey, config.Endpoint, 0)
-		cache.Set(ctx, rateLimitKey, config.RateLimit, 0)
-		cache.Set(ctx, authTypeKey, config.Authorization.Type, 0)
+		cache.Set(ctx, endpointKey, config.Endpoint)
+		cache.Set(ctx, pathKey, config.Path)
+		cache.Set(ctx, methodKey, config.Method)
+		cache.Set(ctx, rateLimitKey, config.RateLimit)
+		cache.Set(ctx, authTypeKey, config.Authorization.Type)
 
-		if config.Authorization.Type == auth.BASIC_AUTH {
-			usernameKey := apiName + ":username"
-			passwordKey := apiName + ":password"
+		usernameKey := apiName + ":username"
+		clientIdKey := apiName + ":client_id"
+		clientSecretKey := apiName + ":client_secret"
 
-			cache.Set(ctx, usernameKey, config.Authorization.BasicAuth.Credentials.Username, 0)
-			cache.Set(ctx, passwordKey, config.Authorization.BasicAuth.Credentials.Password, 0)
-		}
+		cache.Set(ctx, usernameKey, config.Authorization.OAuthConfig.Username)
+		cache.Set(ctx, clientIdKey, config.Authorization.OAuthConfig.ClientID)
+		cache.Set(ctx, clientSecretKey, config.Authorization.OAuthConfig.ClientSecret)
 
 	}
 }
