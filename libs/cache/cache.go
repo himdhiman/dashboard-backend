@@ -26,6 +26,18 @@ type CacheConfig struct {
 	Prefix   string
 }
 
+// NewCacheConfig creates a new cache configuration
+func NewCacheConfig(host string, port int, password string, db int, timeout time.Duration, prefix string) *CacheConfig {
+	return &CacheConfig{
+		Host:     host,
+		Port:     port,
+		Password: password,
+		DB:       db,
+		Timeout:  timeout,
+		Prefix:   prefix,
+	}
+}
+
 // NewCacheClient creates a new Redis cache client with optional configurations
 func NewCacheClient(
 	config *CacheConfig,

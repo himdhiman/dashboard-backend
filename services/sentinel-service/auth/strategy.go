@@ -2,10 +2,11 @@ package auth
 
 import (
 	"context"
-	"net/http"
+
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 )
 
 type AuthenticationStrategy interface {
-	AuthenticateRequest(ctx context.Context, r *http.Request) error
-	FetchTokens(ctx context.Context, r *http.Request) (string, string, error)
+	FetchTokens(ctx context.Context, apiName string) (*models.TokenResponse, error)
+	RefreshTokens(ctx context.Context, apiName string) (*models.TokenResponse, error)
 }

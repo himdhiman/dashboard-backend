@@ -9,6 +9,8 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20241218093311-5bed961e82ae
 )
 
+replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
+
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
 
 replace github.com/himdhiman/dashboard-backend/libs/cache => ../../libs/cache

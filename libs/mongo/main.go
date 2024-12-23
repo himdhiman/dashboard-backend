@@ -21,13 +21,21 @@ type MongoClient struct {
 	Logger   logger.LoggerInterface
 }
 
+func NewMongoConfig(mongoURL, databaseName string) *models.Config {
+	return &models.Config{
+		MongoURL:     mongoURL,
+		DatabaseName: databaseName,
+	}
+}
+
 // NewMongoClient initializes the MongoDB connection and returns a MongoClient instance
-func NewMongoClient(config models.Config, logger logger.LoggerInterface) (interfaces.IMongoClient, error) {
+func NewMongoClient(config *models.Config, logger logger.LoggerInterface) (interfaces.IMongoClient, error) {
 	client := &MongoClient{Logger: logger}
 	err := client.connect(context.Background(), config.MongoURL)
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("MongoDB client initialized")
 	err = client.getDatabase(context.Background(), config.DatabaseName)
 	if err != nil {
 		return nil, err
@@ -35,6 +43,7 @@ func NewMongoClient(config models.Config, logger logger.LoggerInterface) (interf
 	return client, nil
 }
 
+// connect initializes the MongoDB connection
 func (m *MongoClient) connect(ctx context.Context, uri string) error {
 	// Set up a MongoDB client
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -58,6 +67,7 @@ func (m *MongoClient) connect(ctx context.Context, uri string) error {
 	return nil
 }
 
+// Disconnect closes the MongoDB connection
 func (m *MongoClient) Disconnect(ctx context.Context) error {
 	if err := m.Client.Disconnect(ctx); err != nil {
 		m.Logger.Error("Error disconnecting MongoDB", "error", err)
@@ -67,14 +77,17 @@ func (m *MongoClient) Disconnect(ctx context.Context) error {
 	return nil
 }
 
+// Ping checks the connection to MongoDB
 func (m *MongoClient) Ping(ctx context.Context) error {
 	if err := m.Client.Ping(ctx, nil); err != nil {
 		m.Logger.Error("Failed to ping MongoDB", "error", err)
 		return err
 	}
+	m.Logger.Info("MongoDB ping successful")
 	return nil
 }
 
+// getDatabase validates and returns a MongoDB database instance
 func (m *MongoClient) getDatabase(ctx context.Context, name string) error {
 	if !helpers.IsValidDatabaseName(name) {
 		return fmt.Errorf("invalid database name")
@@ -99,6 +112,7 @@ func (m *MongoClient) getDatabase(ctx context.Context, name string) error {
 	}
 
 	m.Database = m.Client.Database(name)
+	m.Logger.Info("MongoDB database initialized successfully for database", "database", name)
 	return nil
 }
 
@@ -126,5 +140,6 @@ func (m *MongoClient) GetCollection(ctx context.Context, collection string) (*mo
 		return nil, fmt.Errorf("collection %s does not exist", collection)
 	}
 
+	m.Logger.Info("MongoDB collection initialized successfully for collection", "collection", collection)
 	return &models.MongoCollection{Collection: m.Database.Collection(collection)}, nil
 }

@@ -1,62 +1,84 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 )
 
 type Crypto struct {
-	SecretKey string
+	secretKey            string
+	initializationVector string
 }
 
-func (c *Crypto) Encrypt(plaintext string) string {
-	aes, err := aes.NewCipher([]byte(c.SecretKey))
-	if err != nil {
-		panic(err)
+// NewCrypto creates a new Crypto instance
+func NewCrypto(secretKey string, initializationVector string) *Crypto {
+	return &Crypto{
+		secretKey:            secretKey,
+		initializationVector: initializationVector,
 	}
-
-	gcm, err := cipher.NewGCM(aes)
-	if err != nil {
-		panic(err)
-	}
-
-	// We need a 12-byte nonce for GCM (modifiable if you use cipher.NewGCMWithNonceSize())
-	// A nonce should always be randomly generated for every encryption.
-	nonce := make([]byte, gcm.NonceSize())
-	_, err = rand.Read(nonce)
-	if err != nil {
-		panic(err)
-	}
-
-	// ciphertext here is actually nonce+ciphertext
-	// So that when we decrypt, just knowing the nonce size
-	// is enough to separate it from the ciphertext.
-	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-
-	return string(ciphertext)
 }
 
-func (c *Crypto) Decrypt(ciphertext string) string {
-	aes, err := aes.NewCipher([]byte(c.SecretKey))
-	if err != nil {
-		panic(err)
+// Encrypt encrypts given text in AES 256 CBC
+func (c *Crypto) Encrypt(plaintext string) (string, error) {
+	var plainTextBlock []byte
+	length := len(plaintext)
+
+	if length%16 != 0 {
+		extendBlock := 16 - (length % 16)
+		plainTextBlock = make([]byte, length+extendBlock)
+		copy(plainTextBlock[length:], bytes.Repeat([]byte{uint8(extendBlock)}, extendBlock))
+	} else {
+		plainTextBlock = make([]byte, length)
 	}
 
-	gcm, err := cipher.NewGCM(aes)
+	copy(plainTextBlock, plaintext)
+	block, err := aes.NewCipher([]byte(c.secretKey))
+
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	// Since we know the ciphertext is actually nonce+ciphertext
-	// And len(nonce) == NonceSize(). We can separate the two.
-	nonceSize := gcm.NonceSize()
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	ciphertext := make([]byte, len(plainTextBlock))
+	mode := cipher.NewCBCEncrypter(block, []byte(c.initializationVector))
+	mode.CryptBlocks(ciphertext, plainTextBlock)
 
-	plaintext, err := gcm.Open(nil, []byte(nonce), []byte(ciphertext), nil)
+	str := base64.StdEncoding.EncodeToString(ciphertext)
+
+	return str, nil
+}
+
+// Decrypt decrypts given text in AES 256 CBC
+func (c *Crypto) Decrypt(encrypted string) ([]byte, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encrypted)
+
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return string(plaintext)
+	block, err := aes.NewCipher([]byte(c.secretKey))
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("block size cant be zero")
+	}
+
+	mode := cipher.NewCBCDecrypter(block, []byte(c.initializationVector))
+	mode.CryptBlocks(ciphertext, ciphertext)
+	ciphertext = pkcs5UnPadding(ciphertext)
+
+	return ciphertext, nil
+}
+
+// PKCS5UnPadding  pads a certain blob of data with necessary data to be used in AES block cipher
+func pkcs5UnPadding(src []byte) []byte {
+	length := len(src)
+	unpadding := int(src[length-1])
+
+	return src[:(length - unpadding)]
 }
