@@ -1,18 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
+	"github.com/himdhiman/dashboard-backend/libs/task"
 
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/worker"
 )
 
@@ -36,7 +35,7 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	cacheConfig := cache.NewCacheConfig("localhost", 6379, "", 0, 1, "sentinel")
+	cacheConfig := cache.NewCacheConfig("localhost", 6379, "", 0, 0, "sentinel")
 	cache := cache.NewCacheClient(cacheConfig, logger)
 
 	ctx = context.Background()
@@ -54,42 +53,29 @@ func main() {
 	cryptoInstance := crypto.NewCrypto(secretKey, initializationVector)
 
 	authentication := auth.NewAuthentication(cache, logger, cryptoInstance)
-	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, "unicommerce", authentication)
+	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
 
-	payload := map[string]string{
-		"skuCode": "NS11716",
-	}
-
-	payloadBytes, err := json.Marshal(payload)
+	collectionName = "unicom_products"
+	collection, err = mongoClient.GetCollection(context.Background(), collectionName)
 	if err != nil {
-		logger.Error("Error encoding payload for token request", "error", err)
-		panic(err)
+		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://salty.unicommerce.com/services/rest/v1/catalog/itemType/get", bytes.NewBuffer(payloadBytes))
+	unicommerceService := services.NewUnicommerceService(tokenManager, logger, collection)
+
+	taskCollectionName := "sentinel_tasks"
+	collection, err = mongoClient.GetCollection(context.Background(), taskCollectionName)
 	if err != nil {
-		logger.Error("Error creating request for FetchTokens", "error", err)
-		panic(err)
+		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
+	taskService := task.NewTaskService(collection, logger)
 
-	tokenManager.AuthenticateRequest(ctx, req)
+	// run fetproduct as a task
 
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	err = unicommerceService.FetchProducts(ctx)
 	if err != nil {
-		logger.Error("Error making request to endpoint", "error", err)
-		panic(err)
+		logger.Error("Error fetching item type", "error", err)
+		return
 	}
-	defer resp.Body.Close()
-
-	// read the response
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	logger.Info("Response", "response", buf.String())
-
-	// tokens, err := authentication.FetchTokens(ctx, "unicommerce")
-
-	// logger.Info("Tokens", "tokens", tokens)
 
 }

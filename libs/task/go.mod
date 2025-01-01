@@ -1,27 +1,13 @@
-module github.com/himdhiman/dashboard-backend/services/sentinel-service
+module github.com/himdhiman/dashboard-backend/libs/task
 
 go 1.22.2
 
 require (
-	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20241218093311-5bed961e82ae
-	github.com/himdhiman/dashboard-backend/libs/crypto v0.0.0-20241220153702-23a782a7858d
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20241218052858-2f8483cbcb4a
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20241218093311-5bed961e82ae
 )
 
-replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
-
-replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
-
-replace github.com/himdhiman/dashboard-backend/libs/cache => ../../libs/cache
-
-replace github.com/himdhiman/dashboard-backend/libs/crypto => ../../libs/crypto
-
-
 require (
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
@@ -36,3 +22,5 @@ require (
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 )
+
+replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo

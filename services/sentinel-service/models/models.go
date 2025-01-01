@@ -13,24 +13,28 @@ const (
 	POST AuthenticationMethodType = "POST"
 )
 
+// APIConfig is the model for the API configuration
 type APIConfig struct {
-	ApiName       string                   `bson:"api_name" json:"api_name"`
-	Endpoint      string                   `bson:"endpoint" json:"endpoint"`
-	Path          string                   `bson:"path" json:"path"`
-	Method        AuthenticationMethodType `bson:"method" json:"method"`
-	RateLimit     int                      `bson:"rate_limit" json:"rate_limit"`
-	Authorization AuthConfig               `bson:"authorization" json:"authorization"`
+	Code          string      `bson:"code" json:"code"`
+	BaseURL       string      `bson:"base_url" json:"base_url"`
+	Authorization AuthConfig  `bson:"authorization" json:"authorization"`
+	Endpoints     []Endpoints `bson:"endpoints" json:"endpoints"`
 }
 
+// AuthConfig is the model for the authentication configuration
 type AuthConfig struct {
 	Type        AuthenticationType `bson:"type" json:"type"` // e.g., "OAuth2", "BasicAuth"
-	OAuthConfig *OAuthConfig       `bson:"oauth_config,omitempty" json:"oauth_config,omitempty"`
+	Path        string             `bson:"path" json:"path"` // e.g., "/oauth/token"
+	Credentials string             `bson:"credentials" json:"credentials"`
 }
 
-type OAuthConfig struct {
-	Username     string `bson:"username" json:"username"`
-	ClientID     string `bson:"client_id" json:"client_id"`         // OAuth2 Client ID
-	ClientSecret string `bson:"client_secret" json:"client_secret"` // OAuth2 Client Secret
+// Endpoints is the model for the endpoints configuration
+type Endpoints struct {
+	Code      string                   `bson:"code" json:"code"`
+	Path      string                   `bson:"path" json:"path"`
+	Method    AuthenticationMethodType `bson:"method" json:"method"`
+	RateLimit int                      `bson:"rate_limit" json:"rate_limit"`
+	Timeout   int                      `bson:"timeout" json:"timeout"`
 }
 
 type TokenResponse struct {
@@ -39,4 +43,13 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"` // Access token expiry in seconds
 	Scope        string `json:"scope"`
+}
+
+type Product struct {
+	ID                   int     `json:"id"`
+	SKUCode              string  `json:"skuCode"`
+	Name                 string  `json:"name"`
+	ImageURL             string  `json:"imageUrl"`
+	PrimaryVendor        string  `json:"primaryVendor"`
+	LastProcuredRmbPrice float64 `json:"lastProcuredRmbPrice"`
 }

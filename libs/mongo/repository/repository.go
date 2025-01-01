@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/himdhiman/dashboard-backend/libs/mongo/interfaces"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/mappers"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,12 +12,23 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type IRepository[T any] interface {
+	CreateIndex(ctx context.Context, keys bson.D, unique bool) error
+
+	Create(ctx context.Context, data *T) (string, error)
+	FindByID(ctx context.Context, id string) (*T, error)
+	Find(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) ([]*T, error)
+	Update(ctx context.Context, filter map[string]interface{}, update interface{}) (*models.UpdateResult, error)
+	Delete(ctx context.Context, filter map[string]interface{}) (int64, error)
+}
+
 type Repository[T any] struct {
+	IRepository[T]
 	Collection *models.MongoCollection
 }
 
 // NewRepository initializes a new repository
-func NewRepository[T any](collection *models.MongoCollection) interfaces.IMongoRepository[T] {
+func NewRepository[T any](collection *models.MongoCollection) IRepository[T] {
 	return &Repository[T]{Collection: collection}
 }
 

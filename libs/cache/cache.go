@@ -60,8 +60,8 @@ func NewCacheClient(
 	// Create cache client
 	cache := &CacheClient{
 		client:         rdb,
-		defaultTimeout: config.Timeout * time.Hour,          // Default timeout
-		prefix:         fmt.Sprintf("%s:", config.Password), // Default prefix
+		defaultTimeout: config.Timeout * time.Hour,        // Default timeout
+		prefix:         fmt.Sprintf("%s:", config.Prefix), // Default prefix
 		logger:         loggerInstance,
 	}
 

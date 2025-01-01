@@ -14,8 +14,15 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 )
+
+type Credentials struct {
+	Username     string `json:"username"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+}
 
 type Authentication struct {
 	Mutex  sync.RWMutex
@@ -32,29 +39,39 @@ func NewAuthentication(cache *cache.CacheClient, logger logger.LoggerInterface, 
 	}
 }
 
-func (a *Authentication) FetchTokens(ctx context.Context, apiName string) (*models.TokenResponse, error) {
+func (a *Authentication) FetchTokens(ctx context.Context, apiCode string) (*models.TokenResponse, error) {
 	// Fetch authentication type
-	var endpoint, path string
-	if err := a.cacheGet(ctx, apiName+":endpoint", &endpoint); err != nil {
-		return nil, fmt.Errorf("failed to fetch endpoint for api %s: %w", apiName, err)
+	var endpoint, path, creds string
+	if err := a.cacheGet(ctx, constants.GetBaseURLKey(apiCode), &endpoint); err != nil {
+		return nil, fmt.Errorf("failed to fetch endpoint for api %s: %w", apiCode, err)
 	}
 
-	if err := a.cacheGet(ctx, apiName+":path", &path); err != nil {
-		return nil, fmt.Errorf("failed to fetch path for api %s: %w", apiName, err)
-	}
-	clientId, err := a.getDecryptedValue(ctx, apiName+":client_id")
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch client id for api %s: %w", apiName, err)
+	if err := a.cacheGet(ctx, constants.GetAuthPathKey(apiCode), &path); err != nil {
+		return nil, fmt.Errorf("failed to fetch path for api %s: %w", apiCode, err)
 	}
 
-	clientSecret, err := a.getDecryptedValue(ctx, apiName+":client_secret")
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch client secret for api %s: %w", apiName, err)
+	if err := a.cacheGet(ctx, constants.GetAuthCredentialsKey(apiCode), &creds); err != nil {
+		return nil, fmt.Errorf("failed to fetch credentials for api %s: %w", apiCode, err)
 	}
 
-	username, err := a.getDecryptedValue(ctx, apiName+":username")
+	var credsMap Credentials
+	if err := json.Unmarshal([]byte(creds), &credsMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal credentials for api %s: %w", apiCode, err)
+	}
+
+	clientId, err := a.Crypto.Decrypt(credsMap.ClientID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch username for api %s: %w", apiName, err)
+		return nil, fmt.Errorf("failed to fetch client id for api %s: %w", apiCode, err)
+	}
+
+	clientSecret, err := a.Crypto.Decrypt(credsMap.ClientSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch client secret for api %s: %w", apiCode, err)
+	}
+
+	username, err := a.Crypto.Decrypt(credsMap.Username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch username for api %s: %w", apiCode, err)
 	}
 
 	authURL, err := url.Parse(endpoint + path)
@@ -66,9 +83,9 @@ func (a *Authentication) FetchTokens(ctx context.Context, apiName string) (*mode
 	// Add query parameters
 	params := url.Values{}
 	params.Add("grant_type", "password")
-	params.Add("client_id", clientId)
-	params.Add("username", username)
-	params.Add("password", clientSecret)
+	params.Add("client_id", string(clientId))
+	params.Add("username", string(username))
+	params.Add("password", string(clientSecret))
 
 	authURL.RawQuery = params.Encode()
 
@@ -103,8 +120,8 @@ func (a *Authentication) FetchTokens(ctx context.Context, apiName string) (*mode
 		return nil, errors.New("invalid token response from server")
 	}
 
-	a.setCacheValue(ctx, apiName+":access_token", tokenResponse.AccessToken, time.Duration(tokenResponse.ExpiresIn)*time.Second)
-	a.setCacheValue(ctx, apiName+":refresh_token", tokenResponse.RefreshToken)
+	a.setCacheValue(ctx, apiCode+":access_token", tokenResponse.AccessToken, time.Duration(tokenResponse.ExpiresIn)*time.Second)
+	a.setCacheValue(ctx, apiCode+":refresh_token", tokenResponse.RefreshToken)
 
 	a.Logger.Info("Successfully fetched tokens and stored in cache")
 	return &tokenResponse, nil

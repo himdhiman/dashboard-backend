@@ -11,11 +11,17 @@ import (
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/helpers"
-	"github.com/himdhiman/dashboard-backend/libs/mongo/interfaces"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 )
 
+type IMongoClient interface {
+	Disconnect(ctx context.Context) error
+	Ping(ctx context.Context) error
+	GetCollection(ctx context.Context, name string) (*models.MongoCollection, error)
+}
+
 type MongoClient struct {
+	IMongoClient
 	Client   *mongo.Client
 	Database *mongo.Database
 	Logger   logger.LoggerInterface
@@ -29,7 +35,7 @@ func NewMongoConfig(mongoURL, databaseName string) *models.Config {
 }
 
 // NewMongoClient initializes the MongoDB connection and returns a MongoClient instance
-func NewMongoClient(config *models.Config, logger logger.LoggerInterface) (interfaces.IMongoClient, error) {
+func NewMongoClient(config *models.Config, logger logger.LoggerInterface) (IMongoClient, error) {
 	client := &MongoClient{Logger: logger}
 	err := client.connect(context.Background(), config.MongoURL)
 	if err != nil {
