@@ -24,7 +24,7 @@ type MongoClient struct {
 	IMongoClient
 	Client   *mongo.Client
 	Database *mongo.Database
-	Logger   logger.LoggerInterface
+	Logger   logger.ILogger
 }
 
 func NewMongoConfig(mongoURL, databaseName string) *models.Config {
@@ -35,7 +35,7 @@ func NewMongoConfig(mongoURL, databaseName string) *models.Config {
 }
 
 // NewMongoClient initializes the MongoDB connection and returns a MongoClient instance
-func NewMongoClient(config *models.Config, logger logger.LoggerInterface) (IMongoClient, error) {
+func NewMongoClient(config *models.Config, logger logger.ILogger) (IMongoClient, error) {
 	client := &MongoClient{Logger: logger}
 	err := client.connect(context.Background(), config.MongoURL)
 	if err != nil {

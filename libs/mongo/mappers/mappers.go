@@ -4,6 +4,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -27,5 +28,12 @@ func MapUpdateResult(mongoResult *mongo.UpdateResult) *models.UpdateResult {
 
 // MapToBson converts a map[string]interface{} to bson.M
 func MapToBson(filter map[string]interface{}) bson.M {
+	if id, ok := filter["_id"]; ok {
+		if oid, ok := id.(string); ok {
+			if objID, err := primitive.ObjectIDFromHex(oid); err == nil {
+				filter["_id"] = objID
+			}
+		}
+	}
 	return bson.M(filter)
 }

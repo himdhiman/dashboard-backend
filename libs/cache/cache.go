@@ -14,7 +14,7 @@ type CacheClient struct {
 	client         *redis.Client
 	defaultTimeout time.Duration
 	prefix         string
-	logger         logger.LoggerInterface
+	logger         logger.ILogger
 }
 
 type CacheConfig struct {
@@ -41,7 +41,7 @@ func NewCacheConfig(host string, port int, password string, db int, timeout time
 // NewCacheClient creates a new Redis cache client with optional configurations
 func NewCacheClient(
 	config *CacheConfig,
-	loggerInstance logger.LoggerInterface,
+	loggerInstance logger.ILogger,
 	options ...CacheOption,
 ) *CacheClient {
 	// Validate logger

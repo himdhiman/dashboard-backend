@@ -11,14 +11,15 @@ import (
 
 // Logger is the main logging implementation
 type Logger struct {
+	ILogger
 	config         *Config
 	contextManager *ContextManager
 	slogLogger     *slog.Logger
-	hooks          []HookInterface
+	hooks          []IHook
 }
 
 // New creates a new Logger instance
-func New(config *Config) *Logger {
+func New(config *Config) ILogger {
 	// Use default config if nil
 	if config == nil {
 		config = DefaultConfig()
@@ -44,20 +45,19 @@ func New(config *Config) *Logger {
 }
 
 // WithContext adds correlation ID to the logger
-func (l *Logger) WithContext(ctx context.Context) LoggerInterface {
+func (l *Logger) WithContext(ctx context.Context) ILogger {
 	// Ensure context has a correlation ID
-	newCtx, correlationID := l.contextManager.ExtractOrCreateCorrelationID(ctx)
+	newCtx := context.Background()
 
 	// Create a new logger with the correlation ID
 	return &ContextualLogger{
-		base:          l,
-		ctx:           newCtx,
-		correlationID: correlationID,
+		base: l,
+		ctx:  newCtx,
 	}
 }
 
 // WithFields creates a new logger with additional fields
-func (l *Logger) WithFields(fields Fields) LoggerInterface {
+func (l *Logger) WithFields(fields Fields) ILogger {
 	return &FieldLogger{
 		base:   l,
 		fields: fields,
@@ -160,41 +160,40 @@ func containsLevel(levels []LogLevel, level LogLevel) bool {
 
 // Contextual logger wrapper
 type ContextualLogger struct {
-	base          *Logger
-	ctx           context.Context
-	correlationID string
+	base *Logger
+	ctx  context.Context
 }
 
 func (cl *ContextualLogger) Debug(msg string, args ...interface{}) {
-	cl.base.log(LevelDebug, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(LevelDebug, msg, args...)
 }
 
 func (cl *ContextualLogger) Info(msg string, args ...interface{}) {
-	cl.base.log(LevelInfo, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(LevelInfo, msg, args...)
 }
 
 func (cl *ContextualLogger) Warn(msg string, args ...interface{}) {
-	cl.base.log(LevelWarn, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(LevelWarn, msg, args...)
 }
 
 func (cl *ContextualLogger) Error(msg string, args ...interface{}) {
-	cl.base.log(LevelError, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(LevelError, msg, args...)
 }
 
 func (cl *ContextualLogger) Fatal(msg string, args ...interface{}) {
-	cl.base.log(LevelFatal, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(LevelFatal, msg, args...)
 }
 
-func (cl *ContextualLogger) WithContext(ctx context.Context) LoggerInterface {
+func (cl *ContextualLogger) WithContext(ctx context.Context) ILogger {
 	return cl.base.WithContext(ctx)
 }
 
-func (cl *ContextualLogger) WithFields(fields Fields) LoggerInterface {
+func (cl *ContextualLogger) WithFields(fields Fields) ILogger {
 	return cl.base.WithFields(fields)
 }
 
 func (cl *ContextualLogger) Log(level LogLevel, msg string, args ...interface{}) {
-	cl.base.log(level, msg, append(args, "correlation_id", cl.correlationID)...)
+	cl.base.log(level, msg, args...)
 }
 
 // Field logger wrapper
@@ -228,11 +227,11 @@ func (fl *FieldLogger) Fatal(msg string, args ...interface{}) {
 	fl.base.log(LevelFatal, msg, convertFieldsToArgs(mergedFields)...)
 }
 
-func (fl *FieldLogger) WithContext(ctx context.Context) LoggerInterface {
+func (fl *FieldLogger) WithContext(ctx context.Context) ILogger {
 	return fl.base.WithContext(ctx)
 }
 
-func (fl *FieldLogger) WithFields(fields Fields) LoggerInterface {
+func (fl *FieldLogger) WithFields(fields Fields) ILogger {
 	return fl.base.WithFields(mergeFields(fl.fields, fields))
 }
 

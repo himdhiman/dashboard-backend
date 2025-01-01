@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
@@ -27,11 +28,11 @@ type Task struct {
 }
 
 type TaskManager struct {
-	Logger   logger.LoggerInterface
+	Logger   logger.ILogger
 	TaskRepo repository.IRepository[Task]
 }
 
-func NewTaskManager(collection *models.MongoCollection, logger logger.LoggerInterface) *TaskManager {
+func NewTaskManager(collection *models.MongoCollection, logger logger.ILogger) *TaskManager {
 	taskRepo := repository.Repository[Task]{Collection: collection}
 
 	return &TaskManager{
@@ -43,9 +44,11 @@ func NewTaskManager(collection *models.MongoCollection, logger logger.LoggerInte
 // RunTask runs a task in the background and adds an entry in the MongoDB database for that task
 func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, taskFunc func(params map[string]interface{})) (string, error) {
 	task := &Task{
-		TaskType: taskType,
-		Status:   TaskStatusPending,
-		Params:   params,
+		TaskType:  taskType,
+		Status:    TaskStatusPending,
+		Params:    params,
+		CreatedAt: time.Now().Format(time.RFC3339),
+		UpdatedAt: time.Now().Format(time.RFC3339),
 	}
 
 	ctx := context.Background()
@@ -57,7 +60,7 @@ func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, t
 
 	go func() {
 		// Update the task status to running
-		_, err := tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusRunning})
+		_, err := tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusRunning, "updated_at": time.Now().Format(time.RFC3339)})
 		if err != nil {
 			tm.Logger.Error("Error updating task status to running", "error", err)
 			return
@@ -67,7 +70,7 @@ func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, t
 		taskFunc(params)
 
 		// Update the task status to completed
-		_, err = tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusCompleted})
+		_, err = tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusCompleted, "updated_at": time.Now().Format(time.RFC3339)})
 		if err != nil {
 			tm.Logger.Error("Error updating task status to completed", "error", err)
 			return

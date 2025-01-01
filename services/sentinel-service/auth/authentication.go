@@ -28,10 +28,10 @@ type Authentication struct {
 	Mutex  sync.RWMutex
 	Cache  *cache.CacheClient
 	Crypto *crypto.Crypto
-	Logger logger.LoggerInterface
+	Logger logger.ILogger
 }
 
-func NewAuthentication(cache *cache.CacheClient, logger logger.LoggerInterface, crypto *crypto.Crypto) *Authentication {
+func NewAuthentication(cache *cache.CacheClient, logger logger.ILogger, crypto *crypto.Crypto) *Authentication {
 	return &Authentication{
 		Cache:  cache,
 		Crypto: crypto,

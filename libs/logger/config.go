@@ -20,10 +20,10 @@ type Config struct {
 	CorrelationKey string
 
 	// Hooks for additional logging actions
-	Hooks []HookInterface
+	Hooks []IHook
 
 	// Custom formatters
-	Formatter FormatterInterface
+	Formatter IFormatter
 }
 
 // DefaultConfig provides a standard configuration
@@ -33,7 +33,7 @@ func DefaultConfig() *Config {
 		Outputs:        []io.Writer{os.Stdout},
 		Format:         "text",
 		CorrelationKey: "correlation_id",
-		Hooks:          []HookInterface{},
+		Hooks:          []IHook{},
 	}
 }
 

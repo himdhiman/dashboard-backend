@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type AuthenticationType string
 type AuthenticationMethodType string
 
@@ -46,10 +48,11 @@ type TokenResponse struct {
 }
 
 type Product struct {
-	ID                   int     `json:"id"`
-	SKUCode              string  `json:"skuCode"`
-	Name                 string  `json:"name"`
-	ImageURL             string  `json:"imageUrl"`
-	PrimaryVendor        string  `json:"primaryVendor"`
-	LastProcuredRmbPrice float64 `json:"lastProcuredRmbPrice"`
+	SKUCode              string    `json:"skuCode" bson:"skuCode"`
+	Name                 string    `json:"name" bson:"name"`
+	ImageURL             string    `json:"imageUrl" bson:"imageUrl"`
+	PrimaryVendor        string    `json:"primaryVendor" bson:"primaryVendor"`
+	LastProcuredRmbPrice float64   `json:"lastProcuredRmbPrice" bson:"lastProcuredRmbPrice"`
+	CreatedAt            time.Time `json:"createdAt" bson:"createdAt"`
+	UpdatedAt            time.Time `json:"updatedAt" bson:"updatedAt"`
 }

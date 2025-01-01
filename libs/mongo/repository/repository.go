@@ -95,7 +95,8 @@ func (r *Repository[T]) Find(ctx context.Context, filter map[string]interface{},
 // Update updates documents matching the filter
 func (r *Repository[T]) Update(ctx context.Context, filter map[string]interface{}, update interface{}) (*models.UpdateResult, error) {
 	bsonFilters := mappers.MapToBson(filter)
-	result, err := r.Collection.Collection.UpdateMany(ctx, bsonFilters, update)
+	updateDoc := bson.M{"$set": update}
+	result, err := r.Collection.Collection.UpdateMany(ctx, bsonFilters, updateDoc)
 	if err != nil {
 		return nil, err
 	}

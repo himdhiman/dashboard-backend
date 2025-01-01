@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/worker"
 )
@@ -68,14 +70,18 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
-	taskService := task.NewTaskService(collection, logger)
+	taskManager := task.NewTaskManager(collection, logger)
 
-	// run fetproduct as a task
+	// Set up router
+	router := routes.SetupRouter(logger, unicommerceService, taskManager)
 
-	err = unicommerceService.FetchProducts(ctx)
-	if err != nil {
-		logger.Error("Error fetching item type", "error", err)
-		return
+	// Start the server
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
 	}
 
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Fatal("listen: ", err)
+	}
 }

@@ -19,12 +19,12 @@ import (
 
 type UnicommerceService struct {
 	ServiceCode        string
-	Logger             logger.LoggerInterface
+	Logger             logger.ILogger
 	TokenManager       *auth.TokenManager
 	ProductsRepository *repository.Repository[models.Product]
 }
 
-func NewUnicommerceService(tokenManager *auth.TokenManager, logger logger.LoggerInterface, productsCollection *mongo_models.MongoCollection) *UnicommerceService {
+func NewUnicommerceService(tokenManager *auth.TokenManager, logger logger.ILogger, productsCollection *mongo_models.MongoCollection) *UnicommerceService {
 
 	productsRepo := repository.Repository[models.Product]{Collection: productsCollection}
 
@@ -34,36 +34,6 @@ func NewUnicommerceService(tokenManager *auth.TokenManager, logger logger.Logger
 		Logger:             logger,
 		ProductsRepository: &productsRepo,
 	}
-}
-
-func (s *UnicommerceService) GetItemType(ctx context.Context, skuCode string) (*http.Response, error) {
-	payload := map[string]string{
-		"skuCode": skuCode,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		s.Logger.Error("Error encoding payload for token request", "error", err)
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://salty.unicommerce.com/services/rest/v1/catalog/itemType/get", bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		s.Logger.Error("Error creating request for FetchTokens", "error", err)
-		return nil, err
-	}
-
-	s.TokenManager.AuthenticateRequest(ctx, req)
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err)
-		return nil, err
-	}
-
-	return resp, nil
 }
 
 func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
@@ -128,7 +98,6 @@ func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 
 	var responseData struct {
 		Products []struct {
-			ID                int    `json:"id"`
 			SKUCode           string `json:"skuCode"`
 			Name              string `json:"name"`
 			ImageURL          string `json:"imageUrl"`
@@ -147,7 +116,6 @@ func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 
 	for _, p := range responseData.Products {
 		product := models.Product{
-			ID:       p.ID,
 			SKUCode:  p.SKUCode,
 			Name:     p.Name,
 			ImageURL: p.ImageURL,
@@ -167,6 +135,8 @@ func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 		}
 
 		if len(products) == 0 {
+			product.CreatedAt = time.Now()
+			product.UpdatedAt = time.Now()
 			_, err = s.ProductsRepository.Create(ctx, &product)
 			if err != nil {
 				s.Logger.Error("Error creating product in DB", "error", err)
@@ -174,7 +144,7 @@ func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 			}
 		} else {
 			// if the product already exists, we update the product
-			_, err = s.ProductsRepository.Update(ctx, map[string]interface{}{"name": product.Name, "imageUrl": product.ImageURL}, product)
+			_, err = s.ProductsRepository.Update(ctx, map[string]interface{}{"name": product.Name, "imageUrl": product.ImageURL, "updatedAt": time.Now()}, product)
 			if err != nil {
 				s.Logger.Error("Error updating product", "error", err)
 				return err
@@ -186,9 +156,6 @@ func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 	return nil
 }
 
-// we will fetch all the products from the database
-// if skuCode is provided, we will filter the products by skuCode
-// we will also take the page number and number of fields per page and fetch the products accordingly
 func (s *UnicommerceService) GetProducts(ctx context.Context, skuCode string, pageNumber int, fieldsPerPage int) ([]*models.Product, error) {
 	filter := map[string]interface{}{}
 	if skuCode != "" {

@@ -29,7 +29,7 @@ type LogEntry struct {
 type Fields map[string]interface{}
 
 // LoggerInterface defines the contract for logging
-type LoggerInterface interface {
+type ILogger interface {
 	Debug(msg string, args ...interface{})
 	Info(msg string, args ...interface{})
 	Warn(msg string, args ...interface{})
@@ -37,20 +37,20 @@ type LoggerInterface interface {
 	Fatal(msg string, args ...interface{})
 
 	// Context-based logging
-	WithContext(ctx context.Context) LoggerInterface
-	WithFields(fields Fields) LoggerInterface
+	WithContext(ctx context.Context) ILogger
+	WithFields(fields Fields) ILogger
 
 	// Advanced logging methods
 	Log(level LogLevel, msg string, args ...interface{})
 }
 
 // HookInterface allows for custom logging hooks
-type HookInterface interface {
+type IHook interface {
 	Fire(entry *LogEntry) error
 	Levels() []LogLevel
 }
 
 // FormatterInterface allows custom log formatting
-type FormatterInterface interface {
+type IFormatter interface {
 	Format(entry *LogEntry) ([]byte, error)
 }

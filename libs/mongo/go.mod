@@ -8,6 +8,8 @@ require (
 	go.mongodb.org/mongo-driver v1.17.1
 )
 
+replace github.com/himdhiman/dashboard-backend/libs/logger => ../logger
+
 require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect

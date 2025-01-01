@@ -13,7 +13,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 )
 
-func StartConfigSync(mongoCollection *mongo_models.MongoCollection, cache *cache.CacheClient, logger logger.LoggerInterface, interval time.Duration) {
+func StartConfigSync(mongoCollection *mongo_models.MongoCollection, cache *cache.CacheClient, logger logger.ILogger, interval time.Duration) {
 	ticker := time.NewTicker(interval * time.Second)
 	defer ticker.Stop()
 
@@ -33,7 +33,7 @@ func StartConfigSync(mongoCollection *mongo_models.MongoCollection, cache *cache
 	}()
 }
 
-func configSync(ctx context.Context, mongoRepo repository.IRepository[models.APIConfig], cache *cache.CacheClient, logger logger.LoggerInterface) {
+func configSync(ctx context.Context, mongoRepo repository.IRepository[models.APIConfig], cache *cache.CacheClient, logger logger.ILogger) {
 	filter := map[string]interface{}{}
 	configs, err := mongoRepo.Find(ctx, filter)
 	if err != nil {

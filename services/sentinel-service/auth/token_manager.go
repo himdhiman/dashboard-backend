@@ -21,12 +21,12 @@ type TokenManager struct {
 	Mutex        sync.RWMutex
 	Cache        *cache.CacheClient
 	Crypto       *crypto.Crypto
-	Logger       logger.LoggerInterface
+	Logger       logger.ILogger
 	ApiName      string
 	AuthStrategy AuthenticationStrategy
 }
 
-func NewTokenManager(cache *cache.CacheClient, logger logger.LoggerInterface, crypto *crypto.Crypto, apiName string, strategy AuthenticationStrategy) *TokenManager {
+func NewTokenManager(cache *cache.CacheClient, logger logger.ILogger, crypto *crypto.Crypto, apiName string, strategy AuthenticationStrategy) *TokenManager {
 	return &TokenManager{
 		Cache:        cache,
 		Logger:       logger,

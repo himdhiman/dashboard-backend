@@ -15,11 +15,11 @@ type BasicAuthStrategy struct {
 	Username string
 	Password string
 	AuthURL  string
-	Logger   logger.LoggerInterface
+	Logger   logger.ILogger
 }
 
 // NewBasicAuthStrategy initializes a new instance of BasicAuthStrategy.
-func NewBasicAuthStrategy(username, password, authURL string, logger logger.LoggerInterface) *BasicAuthStrategy {
+func NewBasicAuthStrategy(username, password, authURL string, logger logger.ILogger) *BasicAuthStrategy {
 	return &BasicAuthStrategy{
 		Username: username,
 		Password: password,

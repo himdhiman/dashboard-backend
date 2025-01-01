@@ -17,11 +17,11 @@ type OAuth2Strategy struct {
 	ClientSecret string
 	AuthURL      string
 	TokenURL     string
-	Logger       logger.LoggerInterface
+	Logger       logger.ILogger
 }
 
 // NewOAuth2Strategy initializes a new instance of OAuth2Strategy.
-func NewOAuth2Strategy(clientID, clientSecret, authURL, tokenURL string, logger logger.LoggerInterface) *OAuth2Strategy {
+func NewOAuth2Strategy(clientID, clientSecret, authURL, tokenURL string, logger logger.ILogger) *OAuth2Strategy {
 	return &OAuth2Strategy{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
