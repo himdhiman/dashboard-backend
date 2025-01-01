@@ -23,4 +23,6 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 )
 
+replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
+
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
