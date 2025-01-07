@@ -1,0 +1,29 @@
+func main() {
+    // Initialize scheduler
+    scheduler := scheduler.NewScheduler(mongoCollection, logger)
+    
+    // Configure job
+    jobConfig := scheduler.JobConfig{
+        Name:        "export-job",
+        CronExpr:    "0 0 * * *", // Run daily at midnight
+        Params:      map[string]interface{}{"type": "daily-export"},
+        MaxRetries:  3,
+        IsRecurring: true,
+    }
+    
+    // Define job function
+    jobFunc := func(ctx context.Context, params map[string]interface{}) error {
+        // Job implementation
+        return nil
+    }
+    
+    // Schedule job
+    err := scheduler.Schedule(ctx, jobConfig, jobFunc)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Start scheduler
+    scheduler.Start()
+    defer scheduler.Stop()
+}

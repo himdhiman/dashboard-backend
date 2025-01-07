@@ -4,7 +4,9 @@ const (
 	UNICOM_API_CODE = "UNICOM_SALTY"
 
 	// API Codes
-	API_CODE_UNICOM_FETCH_PRODUCTS = "FETCH_PRODUCTS"
+	API_CODE_UNICOM_FETCH_PRODUCTS    = "FETCH_PRODUCTS"
+	API_CODE_UNICOM_CREATE_JOB        = "CREATE_EXPORT_JOB"
+	API_CODE_UNICOM_EXPORT_JOB_STATUS = "EXPORT_JOB_STATUS"
 )
 
 const (
@@ -17,6 +19,10 @@ const (
 	API_METHOD     = ":Method"
 	API_RATE_LIMIT = ":RateLimit"
 	API_TIMEOUT    = ":Timeout"
+)
+
+const (
+	EXPORT_JOB_CODE = "export_job_code"
 )
 
 func GetBaseURLKey(apiCode string) string {

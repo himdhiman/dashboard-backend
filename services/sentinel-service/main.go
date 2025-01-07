@@ -13,6 +13,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/schedulers"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/worker"
 )
@@ -38,7 +39,11 @@ func main() {
 	}
 
 	cacheConfig := cache.NewCacheConfig("localhost", 6379, "", 0, 0, "sentinel")
-	cache := cache.NewCacheClient(cacheConfig, logger)
+	cache, err := cache.NewCacheClient(cacheConfig, logger)
+	if err != nil {
+		logger.Error("Failed to connect to Redis", "error", err)
+		return
+	}
 
 	ctx = context.Background()
 	err = cache.Ping(ctx)
@@ -72,6 +77,14 @@ func main() {
 	}
 	taskManager := task.NewTaskManager(collection, logger)
 
+	exportJobSchedulerCollectionName := "sentinel_schedulers"
+	collection, err = mongoClient.GetCollection(context.Background(), exportJobSchedulerCollectionName)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+	}
+	exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
+	exportJobScheduler.Start(ctx)
+
 	// Set up router
 	router := routes.SetupRouter(logger, unicommerceService, taskManager)
 
@@ -84,4 +97,11 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatal("listen: ", err)
 	}
+}
+
+func initializeSchedulers() {
+	// Initialize scheduler
+
+	// Initialize export job scheduler
+
 }

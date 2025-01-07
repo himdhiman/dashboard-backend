@@ -10,19 +10,19 @@ import (
 
 // Get retrieves a value from the cache and deserialize it into the result type
 func (c *CacheClient) Get(
-	ctx context.Context, 
-	key string, 
+	ctx context.Context,
+	key string,
 	result interface{},
-) error {
+) *CacheError {
 	fullKey := c.buildKey(key)
-	
+
 	// Retrieve the raw data
 	data, err := c.client.Get(ctx, fullKey).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			return fmt.Errorf("key not found: %s", key)
+			return NewCacheMissError(key)
 		}
-		return err
+		return NewCacheConnectError(err)
 	}
 
 	// Deserialize based on result type
@@ -34,15 +34,18 @@ func (c *CacheClient) Get(
 		*v = data
 		return nil
 	default:
-		return json.Unmarshal(data, result)
+		if err := json.Unmarshal(data, result); err != nil {
+			return NewCacheDeserializeError(err)
+		}
+		return nil
 	}
 }
 
 // GetSet atomically sets a new value and returns the old value
 func (c *CacheClient) GetSet(
-	ctx context.Context, 
-	key string, 
-	value interface{}, 
+	ctx context.Context,
+	key string,
+	value interface{},
 	result interface{},
 ) error {
 	// Serialize the new value
@@ -61,7 +64,7 @@ func (c *CacheClient) GetSet(
 	}
 
 	fullKey := c.buildKey(key)
-	
+
 	// Get and set atomically
 	oldData, err := c.client.GetSet(ctx, fullKey, data).Bytes()
 	if err != nil {

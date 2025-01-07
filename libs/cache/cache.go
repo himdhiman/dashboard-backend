@@ -43,11 +43,15 @@ func NewCacheClient(
 	config *CacheConfig,
 	loggerInstance logger.ILogger,
 	options ...CacheOption,
-) *CacheClient {
+) (*CacheClient, error) {
 	// Validate logger
 	if loggerInstance == nil {
 		loggerInstance = logger.New(logger.DefaultConfig())
 		loggerInstance.Warn("No logger provided, using default logger")
+	}
+
+	if config == nil {
+		return nil, NewCacheInvalidError("cache config is required")
 	}
 
 	// Create Redis client configuration
@@ -56,6 +60,11 @@ func NewCacheClient(
 		Password: config.Password,
 		DB:       config.DB,
 	})
+
+	// Test connection
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, NewCacheConnectError(err)
+	}
 
 	// Create cache client
 	cache := &CacheClient{
@@ -78,7 +87,7 @@ func NewCacheClient(
 		"prefix":   cache.prefix,
 	}).Info("Redis cache client initialized")
 
-	return cache
+	return cache, nil
 }
 
 // buildKey constructs the full cache key with prefix

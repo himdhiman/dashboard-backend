@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
@@ -19,12 +20,14 @@ const (
 )
 
 type Task struct {
-	ID        string                 `bson:"_id,omitempty" json:"id,omitempty"`
-	TaskType  string                 `bson:"task_type" json:"task_type"`
-	Status    TaskStatus             `bson:"status" json:"status"`
-	Params    map[string]interface{} `bson:"params,omitempty" json:"params,omitempty"`
-	CreatedAt string                 `bson:"created_at" json:"created_at"`
-	UpdatedAt string                 `bson:"updated_at" json:"updated_at"`
+	ID        string     `bson:"_id,omitempty" json:"id,omitempty"`
+	TaskType  string     `bson:"task_type" json:"task_type"`
+	Status    TaskStatus `bson:"status" json:"status"`
+	Params    string     `bson:"params,omitempty" json:"params,omitempty"`
+	Result    string     `bson:"result,omitempty" json:"result,omitempty"`
+	Error     string     `bson:"error,omitempty" json:"error,omitempty"`
+	CreatedAt string     `bson:"created_at" json:"created_at"`
+	UpdatedAt string     `bson:"updated_at" json:"updated_at"`
 }
 
 type TaskManager struct {
@@ -42,11 +45,19 @@ func NewTaskManager(collection *models.MongoCollection, logger logger.ILogger) *
 }
 
 // RunTask runs a task in the background and adds an entry in the MongoDB database for that task
-func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, taskFunc func(params map[string]interface{})) (string, error) {
+func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, taskFunc func(params map[string]interface{}) (interface{}, error)) (string, error) {
+	// serilize the params to store in the database
+	serializedParams, err := json.Marshal(params)
+	if err != nil {
+		tm.Logger.Error("Error serializing task params", "error", err)
+		return "", err
+	}
+
 	task := &Task{
 		TaskType:  taskType,
 		Status:    TaskStatusPending,
-		Params:    params,
+		Params:    string(serializedParams),
+		Error:     "",
 		CreatedAt: time.Now().Format(time.RFC3339),
 		UpdatedAt: time.Now().Format(time.RFC3339),
 	}
@@ -60,19 +71,38 @@ func (tm *TaskManager) RunTask(taskType string, params map[string]interface{}, t
 
 	go func() {
 		// Update the task status to running
-		_, err := tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusRunning, "updated_at": time.Now().Format(time.RFC3339)})
+		_, err := tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{
+			"status":     TaskStatusRunning,
+			"updated_at": time.Now().Format(time.RFC3339),
+		})
 		if err != nil {
 			tm.Logger.Error("Error updating task status to running", "error", err)
 			return
 		}
 
 		// Run the task function with the provided parameters
-		taskFunc(params)
+		result, err := taskFunc(params)
+		updateFields := map[string]interface{}{
+			"updated_at": time.Now().Format(time.RFC3339),
+		}
 
-		// Update the task status to completed
-		_, err = tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, map[string]interface{}{"status": TaskStatusCompleted, "updated_at": time.Now().Format(time.RFC3339)})
 		if err != nil {
-			tm.Logger.Error("Error updating task status to completed", "error", err)
+			updateFields["status"] = TaskStatusFailed
+			updateFields["error"] = err.Error()
+		} else {
+			updateFields["status"] = TaskStatusCompleted
+			serializedResult, err := json.Marshal(result)
+			if err != nil {
+				tm.Logger.Error("Error serializing task result", "error", err)
+				return
+			}
+			updateFields["result"] = string(serializedResult)
+		}
+
+		// Update final status and result
+		_, err = tm.TaskRepo.Update(ctx, map[string]interface{}{"_id": id}, updateFields)
+		if err != nil {
+			tm.Logger.Error("Error updating task status and result", "error", err)
 			return
 		}
 	}()

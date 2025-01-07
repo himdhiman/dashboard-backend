@@ -1,11 +1,14 @@
 [
   {
+    "_id": {
+      "$oid": "677445172b06cb881c5f88d8"
+    },
     "code": "UNICOM_SALTY",
     "base_url": "https://salty.unicommerce.com",
     "authorization": {
       "type": "BasicAuth",
       "path": "/oauth/token",
-      "credentials": "{\"username\": \"cvy/AoKLgpXt1IiYMXDPzzT9rWiiQPinQ/XBSoWmnQE=\", \"client_id\": \"Da9VPPydEpMmf/oXmqHofwD2QzlzvtXfJYkwA5wlFE0=\", \"client_secret\": \"rv+wDWsjRSrrqcBgccp/7w==\"}"
+      "credentials": "{\"username\": \"cvy/AoKLgpXt1IiYMXDPzzT9rWiiQPinQ/XBSoWmnQE=\", \"client_id\": \"Da9VPPydEpMmf/oXmqHofwD2QzlzvtXfJYkwA5wlFE0=\", \"client_secret\": \"HWCO8VrqNtnh6V6NIEezzg==\"}"
     },
     "endpoints": [
       {
@@ -14,7 +17,17 @@
         "method": "POST",
         "rate_limit": 5,
         "timeout": 5000
+      },
+      {
+        "code": "CREATE_EXPORT_JOB",
+        "path": "/services/rest/v1/export/job/status",
+        "method": "POST",
+        "rate_limit": 5,
+        "timeout": 5000
       }
     ]
   }
 ]
+
+
+{"successful":false,"message":null,"errors":[{"code":1000,"fieldName":null,"description":"please fill valid value","message":"Unrecognized field "exportColums" (Class com.uniware.core.api.warehouse.SearchItemTypesRequest), not marked as ignorable\\n at [Source: org.springframework.web.util.ContentCachingRequestWrapper$ContentCachingInputStream@6f8e07b5; line: 1, column: 18] (through reference chain: com.uniware.core.api.warehouse.SearchItemTypesRequest[\\\"exportColums\\\"])\",\"errorParams\":null}],\"warnings\":null}

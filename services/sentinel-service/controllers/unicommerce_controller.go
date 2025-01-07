@@ -8,6 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/task"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 )
 
@@ -25,11 +27,21 @@ func NewUnicommerceController(logger logger.ILogger, service *services.Unicommer
 	}
 }
 
+type GetProductsResponse struct {
+	Data  []models.Product `json:"data"`
+	Total int              `json:"total"`
+	Page  int              `json:"page"`
+	Limit int              `json:"limit"`
+}
+
 func (uc *UnicommerceController) GetProducts(c *gin.Context) {
 	// Parse query parameters
+
 	pageNumberStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
 	skuCode := c.DefaultQuery("skuCode", "")
+
+	
 
 	pageNumber, err := strconv.Atoi(pageNumberStr)
 	if err != nil || pageNumber < 1 {
@@ -43,26 +55,39 @@ func (uc *UnicommerceController) GetProducts(c *gin.Context) {
 
 	/// Fetch products
 	ctx := c.Request.Context()
-	products, err := uc.Service.GetProducts(ctx, skuCode, pageNumber, limit)
+	productsPtr, total, err := uc.Service.GetProducts(ctx, skuCode, pageNumber, limit)
 	if err != nil {
 		uc.Logger.Error("Error fetching products", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
 	}
 
-	c.JSON(http.StatusOK, products)
+	products := make([]models.Product, len(productsPtr))
+	for i, p := range productsPtr {
+		products[i] = *p
+	}
+
+	response := GetProductsResponse{
+		Data:  products,
+		Total: int(total),
+		Page:  pageNumber,
+		Limit: limit,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // FetchProducts fetches products from the Unicommerce API, runs the task in the background and returns the task ID
 func (uc *UnicommerceController) FetchProducts(c *gin.Context) {
-	fetchProductsTask := func(params map[string]interface{}) {
+	fetchProductsTask := func(params map[string]interface{}) (interface{}, error) {
 		ctx := context.Background()
 		err := uc.Service.FetchProducts(ctx)
 		if err != nil {
 			uc.Logger.Error("Error fetching products", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-			return
+			return nil, err
 		}
+		return nil, nil
 	}
 
 	taskID, err := uc.TaskManager.RunTask("FetchProducts", nil, fetchProductsTask)
@@ -73,4 +98,24 @@ func (uc *UnicommerceController) FetchProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+}
+
+// CreateExportJob creates an export job in the Unicommerce API, runs the task in the background and returns the task ID
+func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
+	ctx := context.Background()
+	var jobCode string
+	cacheErr := uc.Service.TokenManager.Cache.Get(ctx, constants.EXPORT_JOB_CODE, &jobCode)
+	if cacheErr == nil && jobCode != "" {
+		c.JSON(http.StatusOK, gin.H{"message": "A job is already running"})
+		return
+	}
+
+	job, err := uc.Service.CreateExportJob(ctx)
+	if err != nil {
+		uc.Logger.Error("Error creating export job", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create export job"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"job_code": job.JobCode})
 }

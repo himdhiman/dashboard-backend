@@ -56,6 +56,12 @@ func (r *Repository[T]) Create(ctx context.Context, data *T) (string, error) {
 	return id.Hex(), nil
 }
 
+// Count returns the number of documents matching the filter
+func (r *Repository[T]) Count(ctx context.Context, filter map[string]interface{}) (int64, error) {
+	bsonFilters := mappers.MapToBson(filter)
+	return r.Collection.Collection.CountDocuments(ctx, bsonFilters)
+}
+
 // FindByID retrieves a document by its ID
 func (r *Repository[T]) FindByID(ctx context.Context, id string) (*T, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
