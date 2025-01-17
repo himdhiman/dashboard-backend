@@ -21,7 +21,7 @@ import (
 func main() {
 
 	ctx := context.Background()
-	logger := logger.New(logger.DefaultConfig()).WithContext(ctx)
+	logger := logger.New(logger.DefaultConfig("Sentinel-Service")).WithContext(ctx)
 
 	mongoConfig := mongo.NewMongoConfig("mongodb://localhost:27017", "Dashboard")
 	mongoClient, err := mongo.NewMongoClient(mongoConfig, logger)
@@ -97,11 +97,4 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatal("listen: ", err)
 	}
-}
-
-func initializeSchedulers() {
-	// Initialize scheduler
-
-	// Initialize export job scheduler
-
 }

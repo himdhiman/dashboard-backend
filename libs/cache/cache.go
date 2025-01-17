@@ -46,7 +46,7 @@ func NewCacheClient(
 ) (*CacheClient, error) {
 	// Validate logger
 	if loggerInstance == nil {
-		loggerInstance = logger.New(logger.DefaultConfig())
+		loggerInstance = logger.New(logger.DefaultConfig("Cache Logger"))
 		loggerInstance.Warn("No logger provided, using default logger")
 	}
 

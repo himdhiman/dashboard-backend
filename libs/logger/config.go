@@ -7,6 +7,9 @@ import (
 
 // Config represents the configuration for the logger
 type Config struct {
+	// Service name
+	ServiceName string
+
 	// Logging level
 	Level LogLevel
 
@@ -16,9 +19,6 @@ type Config struct {
 	// Output format (json, text)
 	Format string
 
-	// Correlation ID key
-	CorrelationKey string
-
 	// Hooks for additional logging actions
 	Hooks []IHook
 
@@ -27,13 +27,13 @@ type Config struct {
 }
 
 // DefaultConfig provides a standard configuration
-func DefaultConfig() *Config {
+func DefaultConfig(serviceName string) *Config {
 	return &Config{
-		Level:          LevelInfo,
-		Outputs:        []io.Writer{os.Stdout},
-		Format:         "text",
-		CorrelationKey: "correlation_id",
-		Hooks:          []IHook{},
+		Level:       LevelInfo,
+		Outputs:     []io.Writer{os.Stdout},
+		Format:      "text",
+		ServiceName: serviceName,
+		Hooks:       []IHook{},
 	}
 }
 

@@ -22,11 +22,11 @@ type Logger struct {
 func New(config *Config) ILogger {
 	// Use default config if nil
 	if config == nil {
-		config = DefaultConfig()
+		config = DefaultConfig("DeafultService")
 	}
 
 	// Create context manager
-	contextManager := NewContextManager(config.CorrelationKey)
+	contextManager := NewContextManager(config.ServiceName)
 
 	// Determine handler based on format
 	var handler slog.Handler
@@ -46,10 +46,9 @@ func New(config *Config) ILogger {
 
 // WithContext adds correlation ID to the logger
 func (l *Logger) WithContext(ctx context.Context) ILogger {
-	// Ensure context has a correlation ID
 	newCtx := context.Background()
 
-	// Create a new logger with the correlation ID
+	// Create a new logger
 	return &ContextualLogger{
 		base: l,
 		ctx:  newCtx,
@@ -80,17 +79,26 @@ func (l *Logger) log(level LogLevel, msg string, args ...interface{}) {
 		return
 	}
 
-	// Prepare log entry
-	entry := &LogEntry{
-		Level:     level,
-		Message:   msg,
-		Timestamp: time.Now().Unix(),
-		Caller:    getCallerInfo(),
+	// Extract correlation ID
+	fields := extractFields(args...)
+
+	// Extract correlation ID
+	correlationID := ""
+	if id, ok := fields["correlation_id"]; ok {
+		correlationID = id.(string)
 	}
 
-	// Convert arguments to fields
-	fields := extractFields(args...)
+	// Prepare log entry
+	entry := &LogEntry{
+		Level:         level,
+		Message:       msg,
+		CorrelationID: correlationID,
+		Timestamp:     time.Now().Unix(),
+		Caller:        getCallerInfo(),
+	}
+
 	entry.Fields = fields
+	// Convert arguments to fields
 
 	// Run hooks
 	for _, hook := range l.hooks {
