@@ -38,7 +38,9 @@ type ILogger interface {
 
 	// Context-based logging
 	WithContext(ctx context.Context) ILogger
+	WithField(key string, value interface{}) ILogger
 	WithFields(fields Fields) ILogger
+	WithError(err error) ILogger
 
 	// Advanced logging methods
 	Log(level LogLevel, msg string, args ...interface{})

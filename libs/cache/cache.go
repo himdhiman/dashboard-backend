@@ -9,12 +9,17 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
 
+type CacheType int
+
+const (
+	RedisCache CacheType = iota
+	InMemoryCache
+)
+
 // CacheClient implements the Cacher interface with logging
 type CacheClient struct {
-	client         *redis.Client
-	defaultTimeout time.Duration
-	prefix         string
-	logger         logger.ILogger
+	*BaseCache
+	client *redis.Client
 }
 
 type CacheConfig struct {
@@ -26,24 +31,12 @@ type CacheConfig struct {
 	Prefix   string
 }
 
-// NewCacheConfig creates a new cache configuration
-func NewCacheConfig(host string, port int, password string, db int, timeout time.Duration, prefix string) *CacheConfig {
-	return &CacheConfig{
-		Host:     host,
-		Port:     port,
-		Password: password,
-		DB:       db,
-		Timeout:  timeout,
-		Prefix:   prefix,
-	}
-}
-
 // NewCacheClient creates a new Redis cache client with optional configurations
 func NewCacheClient(
 	config *CacheConfig,
 	loggerInstance logger.ILogger,
 	options ...CacheOption,
-) (*CacheClient, error) {
+) (Cacher, error) {
 	// Validate logger
 	if loggerInstance == nil {
 		loggerInstance = logger.New(logger.DefaultConfig("Cache Logger"))
@@ -68,10 +61,8 @@ func NewCacheClient(
 
 	// Create cache client
 	cache := &CacheClient{
-		client:         rdb,
-		defaultTimeout: config.Timeout * time.Hour,        // Default timeout
-		prefix:         fmt.Sprintf("%s:", config.Prefix), // Default prefix
-		logger:         loggerInstance,
+		BaseCache: NewBaseCache(config.Prefix, config.Timeout, loggerInstance),
+		client:    rdb,
 	}
 
 	// Apply optional configurations
@@ -90,10 +81,17 @@ func NewCacheClient(
 	return cache, nil
 }
 
-// buildKey constructs the full cache key with prefix
-func (c *CacheClient) buildKey(key string) string {
-	return fmt.Sprintf("%s%s", c.prefix, key)
+func NewCache(cacheType CacheType, config *CacheConfig, loggerInstance logger.ILogger) (Cacher, error) {
+    switch cacheType {
+    case RedisCache:
+        return NewCacheClient(config, loggerInstance)
+    case InMemoryCache:
+        return NewMemoryCache(config, loggerInstance)
+    default:
+        return nil, NewCacheInvalidError("invalid cache type")
+    }
 }
+
 
 // Ping checks the connection to Redis
 func (c *CacheClient) Ping(ctx context.Context) error {
@@ -116,12 +114,4 @@ func (c *CacheClient) Ping(ctx context.Context) error {
 func (c *CacheClient) Close() error {
 	c.logger.Info("Closing Redis connection")
 	return c.client.Close()
-}
-
-// getLogFields creates standard logging fields for cache operations
-func (c *CacheClient) getLogFields(key string) logger.Fields {
-	return logger.Fields{
-		"key":    key,
-		"prefix": c.prefix,
-	}
 }

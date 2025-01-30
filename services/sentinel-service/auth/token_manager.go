@@ -19,14 +19,14 @@ type TokenMetadata struct {
 
 type TokenManager struct {
 	Mutex        sync.RWMutex
-	Cache        *cache.CacheClient
+	Cache        cache.Cacher
 	Crypto       *crypto.Crypto
 	Logger       logger.ILogger
 	ApiName      string
 	AuthStrategy AuthenticationStrategy
 }
 
-func NewTokenManager(cache *cache.CacheClient, logger logger.ILogger, crypto *crypto.Crypto, apiName string, strategy AuthenticationStrategy) *TokenManager {
+func NewTokenManager(cache cache.Cacher, logger logger.ILogger, crypto *crypto.Crypto, apiName string, strategy AuthenticationStrategy) *TokenManager {
 	return &TokenManager{
 		Cache:        cache,
 		Logger:       logger,

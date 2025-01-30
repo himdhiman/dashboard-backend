@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-backend
+  labels:
+    app: dashboard-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dashboard-backend
+  template:
+    metadata:
+      labels:
+        app: dashboard-backend
+    spec:
+      containers:
+      - name: dashboard-backend
+        image: himanshudhiman/dashboard-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_HOST
+          value: redis-service
+        - name: MONGO_URI
+          value: mongo-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-backend-service
+spec:
+  selector:
+    app: dashboard-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer

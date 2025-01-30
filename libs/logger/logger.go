@@ -22,7 +22,7 @@ type Logger struct {
 func New(config *Config) ILogger {
 	// Use default config if nil
 	if config == nil {
-		config = DefaultConfig("DeafultService")
+		config = DefaultConfig("DefaultService")
 	}
 
 	// Create context manager
@@ -42,6 +42,13 @@ func New(config *Config) ILogger {
 		slogLogger:     slog.New(handler),
 		hooks:          config.Hooks,
 	}
+}
+
+// Add WithError method to Logger struct
+func (l *Logger) WithError(err error) ILogger {
+	return l.WithFields(Fields{
+		"error": err.Error(),
+	})
 }
 
 // WithContext adds correlation ID to the logger
@@ -156,6 +163,12 @@ func (l *Logger) Log(level LogLevel, msg string, args ...interface{}) {
 	l.log(level, msg, args...)
 }
 
+func (l *Logger) WithField(key string, value interface{}) ILogger {
+	return l.WithFields(Fields{
+		key: value,
+	})
+}
+
 // Utility functions
 func containsLevel(levels []LogLevel, level LogLevel) bool {
 	for _, l := range levels {
@@ -196,8 +209,19 @@ func (cl *ContextualLogger) WithContext(ctx context.Context) ILogger {
 	return cl.base.WithContext(ctx)
 }
 
+func (l *ContextualLogger) WithField(key string, value interface{}) ILogger {
+	return l.WithFields(Fields{
+		key: value,
+	})
+}
+
 func (cl *ContextualLogger) WithFields(fields Fields) ILogger {
 	return cl.base.WithFields(fields)
+}
+func (l *ContextualLogger) WithError(err error) ILogger {
+	return l.WithFields(Fields{
+		"error": err.Error(),
+	})
 }
 
 func (cl *ContextualLogger) Log(level LogLevel, msg string, args ...interface{}) {
@@ -239,8 +263,20 @@ func (fl *FieldLogger) WithContext(ctx context.Context) ILogger {
 	return fl.base.WithContext(ctx)
 }
 
+func (l *FieldLogger) WithField(key string, value interface{}) ILogger {
+	return l.WithFields(Fields{
+		key: value,
+	})
+}
+
 func (fl *FieldLogger) WithFields(fields Fields) ILogger {
 	return fl.base.WithFields(mergeFields(fl.fields, fields))
+}
+
+func (l *FieldLogger) WithError(err error) ILogger {
+	return l.WithFields(Fields{
+		"error": err.Error(),
+	})
 }
 
 func (fl *FieldLogger) Log(level LogLevel, msg string, args ...interface{}) {

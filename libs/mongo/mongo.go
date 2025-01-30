@@ -93,7 +93,7 @@ func (m *MongoClient) Ping(ctx context.Context) error {
 	return nil
 }
 
-// getDatabase validates and returns a MongoDB database instance
+// getDatabase validates and returns a MongoDB database instance, creates the database if it does not exist
 func (m *MongoClient) getDatabase(ctx context.Context, name string) error {
 	if !helpers.IsValidDatabaseName(name) {
 		return fmt.Errorf("invalid database name")
@@ -114,7 +114,13 @@ func (m *MongoClient) getDatabase(ctx context.Context, name string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("database %s does not exist", name)
+		// Create a dummy collection to create the database
+		dummyCollection := fmt.Sprintf("%s_dummy_collection", name)
+		err := m.Client.Database(name).CreateCollection(ctx, dummyCollection)
+		if err != nil {
+			return fmt.Errorf("failed to create database %s: %w", name, err)
+		}
+		m.Logger.Info("MongoDB database created successfully", "database", name)
 	}
 
 	m.Database = m.Client.Database(name)
@@ -122,7 +128,7 @@ func (m *MongoClient) getDatabase(ctx context.Context, name string) error {
 	return nil
 }
 
-// GetCollection validates and returns a MongoCollection instance
+// GetCollection validates and returns a MongoCollection instance, creates the collection if it does not exist
 func (m *MongoClient) GetCollection(ctx context.Context, collection string) (*models.MongoCollection, error) {
 	if !helpers.IsValidCollectionName(collection) {
 		return nil, fmt.Errorf("invalid collection name")
@@ -143,7 +149,12 @@ func (m *MongoClient) GetCollection(ctx context.Context, collection string) (*mo
 	}
 
 	if !found {
-		return nil, fmt.Errorf("collection %s does not exist", collection)
+		// Create the collection if it does not exist
+		err := m.Database.CreateCollection(ctx, collection)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create collection %s: %w", collection, err)
+		}
+		m.Logger.Info("MongoDB collection created successfully", "collection", collection)
 	}
 
 	m.Logger.Info("MongoDB collection initialized successfully for collection", "collection", collection)

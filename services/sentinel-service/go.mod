@@ -10,6 +10,7 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20241218093311-5bed961e82ae
 	github.com/himdhiman/dashboard-backend/libs/scheduler v0.0.0-20241218052858-2f8483cbcb4a
 	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20241218093311-5bed961e82ae
+	github.com/joho/godotenv v1.5.1
 )
 
 replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
