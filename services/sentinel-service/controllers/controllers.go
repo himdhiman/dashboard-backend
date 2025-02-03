@@ -31,3 +31,5 @@ func (uc *Controller) GetTaskStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, task)
 }
+
+

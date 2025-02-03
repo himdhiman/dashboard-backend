@@ -40,5 +40,7 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 
 	router.POST("/unicommerce/create/job", unicommerceController.CreateExportJob)
 
+	router.GET("/search-products", unicommerceController.SearchProduct)
+
 	return router
 }

@@ -466,6 +466,23 @@ func (s *UnicommerceService) GetProducts(ctx context.Context, skuCode string, pa
 	return products, cnt, nil
 }
 
+// Create a function to fetch the product by SKU code or by name with partial matching
+func (s *UnicommerceService) SearchProduct(ctx context.Context, skuCode string, name string) ([]*models.Product, error) {
+	filter := map[string]interface{}{}
+	if skuCode != "" {
+		filter["skuCode"] = map[string]interface{}{"$regex": skuCode, "$options": "i"}
+	}
+	if name != "" {
+		filter["name"] = map[string]interface{}{"$regex": name, "$options": "i"}
+	}
+	products, err := s.ProductsRepository.Find(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching products", "error", err)
+		return nil, err
+	}
+	return products, nil
+}
+
 // fetchFromCache retrieves the value from the cache
 func (s *UnicommerceService) fetchFromCache(ctx context.Context, apiCode, key string) (string, *cache.CacheError) {
 	var cacheKey string

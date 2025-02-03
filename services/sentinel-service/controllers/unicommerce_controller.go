@@ -41,8 +41,6 @@ func (uc *UnicommerceController) GetProducts(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
 	skuCode := c.DefaultQuery("skuCode", "")
 
-	
-
 	pageNumber, err := strconv.Atoi(pageNumberStr)
 	if err != nil || pageNumber < 1 {
 		pageNumber = 1
@@ -104,7 +102,7 @@ func (uc *UnicommerceController) FetchProducts(c *gin.Context) {
 func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 	ctx := context.Background()
 	var jobCode string
-	cacheErr := uc.Service.TokenManager.Cache.Get(ctx, constants.EXPORT_JOB_CODE, &jobCode)
+	cacheErr := uc.Service.TokenManager.Cache.Get(ctx, constants.GetUnicomExportJobCode(), &jobCode)
 	if cacheErr == nil && jobCode != "" {
 		c.JSON(http.StatusOK, gin.H{"message": "A job is already running"})
 		return
@@ -118,4 +116,29 @@ func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"job_code": job.JobCode})
+}
+
+func (uc *UnicommerceController) SearchProduct(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	skuCode := c.Query("skuCode")
+	name := c.Query("name")
+
+	products, err := uc.Service.SearchProduct(ctx, skuCode, name)
+	if err != nil {
+		uc.Logger.Error("Error searching products", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search products"})
+		return
+	}
+
+	// Create a response with only name and sku
+	response := make([]map[string]string, len(products))
+	for i, product := range products {
+		response[i] = map[string]string{
+			"name": product.Name,
+			"sku":  product.SKUCode,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"products": response})
 }

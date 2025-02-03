@@ -56,3 +56,7 @@ func GetApiRateLimitKey(apiCode, endpointCode string) string {
 func GetApiTimeoutKey(apiCode, endpointCode string) string {
 	return apiCode + ":" + endpointCode + API_TIMEOUT
 }
+
+func GetUnicomExportJobCode() string {
+	return UNICOM_API_CODE + ":" + EXPORT_JOB_CODE
+}
