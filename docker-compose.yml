@@ -14,7 +14,7 @@ services:
       - "27017:27017"
 
   golang-app:
-    image: himanshudhiman/dashboard-backend:v1.6  # Replace with your Golang Docker image
+    image: himanshudhiman/dashboard-backend:v1.9
     container_name: golang-app
     restart: always
     depends_on:
@@ -25,5 +25,8 @@ services:
       - MONGO_USER=SaltyDev
       - MONGO_HOST=mongo
       - MONGO_PASSWORD=SaltyDevPass
+      - SPREADSHEET_ID=1KjaQVg3EgbrhtP35FOp4gnO1zllM4ZnGXY9czlgv0Js
+      - SHEET_NAME=Sheet1
+      - GOOGLE_CREDENTIALS_PATH=./creds.json
     ports:
-      - "8080:8080"  # Expose Golang app port
+      - "8080:8080"

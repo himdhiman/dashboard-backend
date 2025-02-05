@@ -31,10 +31,12 @@ func (s *GoogleSheetsService) UpdateGoogleSheet(ctx context.Context, data []map[
 		return nil
 	}
 
-	// Extract headers from the first record
+	// Extract headers from the first record and store their positions
 	headers := make([]interface{}, 0, len(data[0]))
+	headerPositions := make(map[string]int)
 	for key := range data[0] {
 		headers = append(headers, key)
+		headerPositions[key] = len(headers) - 1
 	}
 
 	// Prepare the value range
@@ -42,9 +44,11 @@ func (s *GoogleSheetsService) UpdateGoogleSheet(ctx context.Context, data []map[
 	vr.Values = append(vr.Values, headers)
 
 	for _, record := range data {
-		row := []interface{}{}
-		for _, header := range headers {
-			row = append(row, record[header.(string)])
+		row := make([]interface{}, len(headers))
+		for key, value := range record {
+			if pos, ok := headerPositions[key]; ok {
+				row[pos] = value
+			}
 		}
 		vr.Values = append(vr.Values, row)
 	}
