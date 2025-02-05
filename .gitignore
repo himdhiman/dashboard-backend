@@ -1,4 +1,4 @@
 implementation-doc.txt
 *.env
-docker-compose.yaml
+**/docker-compose.yml
 **/creds.json
