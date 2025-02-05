@@ -1,0 +1,42 @@
+[{
+  "_id": {
+    "$oid": "6777af642b06cb881c5f890b"
+  },
+  "code": "UNICOM_SALTY",
+  "base_url": "https://salty.unicommerce.com",
+  "authorization": {
+    "type": "BasicAuth",
+    "path": "/oauth/token",
+    "credentials": "{\"username\": \"cvy/AoKLgpXt1IiYMXDPzzT9rWiiQPinQ/XBSoWmnQE=\", \"client_id\": \"Da9VPPydEpMmf/oXmqHofwD2QzlzvtXfJYkwA5wlFE0=\", \"client_secret\": \"HWCO8VrqNtnh6V6NIEezzg==\"}"
+  },
+  "endpoints": [
+    {
+      "code": "FETCH_PRODUCTS",
+      "path": "/services/rest/v1/product/itemType/search",
+      "method": "POST",
+      "rate_limit": 5,
+      "timeout": 5000
+    },
+    {
+      "code": "CREATE_EXPORT_JOB",
+      "path": "/services/rest/v1/export/job/create",
+      "method": "POST",
+      "rate_limit": 5,
+      "timeout": 5000
+    },
+    {
+      "code": "EXPORT_JOB_STATUS",
+      "path": "/services/rest/v1/export/job/status",
+      "method": "POST",
+      "rate_limit": 5,
+      "timeout": 5000
+    },
+    {
+      "code": "GET_INVENTORY_SNAPSHOT",
+      "path": "/services/rest/v1/inventory/inventorySnapshot/get",
+      "method": "POST",
+      "rate_limit": 5,
+      "timeout": 5000
+    }
+  ]
+}]

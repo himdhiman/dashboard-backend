@@ -58,6 +58,17 @@ func main() {
 		return
 	}
 
+	// Get Google Sheets credentials
+
+	spreadsheetID := os.Getenv("SPREADSHEET_ID")
+	sheetName := os.Getenv("SHEET_NAME")
+	credentials := os.Getenv("GOOGLE_CREDENTIALS_PATH")
+
+	if spreadsheetID == "" || sheetName == "" || credentials == "" {
+		logger.Fatal("Required environment variables SPREADSHEET_ID, SHEET_NAME, GOOGLE_CREDENTIALS_PATH not set")
+		return
+	}
+
 	mongoConnectString := fmt.Sprintf("%s:%s@%s", mongoUser, mongoPass, mongoHost)
 	mongoConfig := mongo.NewMongoConfig(fmt.Sprintf("mongodb://%s:27017", mongoConnectString), "Dashboard")
 	mongoClient, err := mongo.NewMongoClient(mongoConfig, logger)
@@ -95,8 +106,8 @@ func main() {
 
 	worker.StartConfigSync(collection, cache, logger)
 
+	googleSheetsService := services.NewGoogleSheetsService(spreadsheetID, sheetName, credentials)
 	cryptoInstance := crypto.NewCrypto(secretKey, initializationVector)
-
 	authentication := auth.NewAuthentication(cache, logger, cryptoInstance)
 	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
 
@@ -106,13 +117,20 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	unicommerceService := services.NewUnicommerceService(tokenManager, logger, collection)
+	collectionName = "unicom_purchase_orders"
+	po_collection, err := mongoClient.GetCollection(context.Background(), collectionName)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+	}
+
+	unicommerceService := services.NewUnicommerceService(tokenManager, googleSheetsService, logger, collection, po_collection)
 
 	taskCollectionName := "sentinel_tasks"
 	collection, err = mongoClient.GetCollection(context.Background(), taskCollectionName)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
+
 	taskManager := task.NewTaskManager(collection, logger)
 
 	exportJobSchedulerCollectionName := "sentinel_schedulers"
@@ -122,6 +140,10 @@ func main() {
 	}
 	exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
 	exportJobScheduler.Start(ctx)
+
+	// start invetory snapshot scheduler
+	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(collection, unicommerceService, logger)
+	inventorySnapShotScheduler.Start(ctx)
 
 	// Set up router
 	router := routes.SetupRouter(logger, unicommerceService, taskManager)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
+	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
@@ -21,21 +22,27 @@ import (
 )
 
 type UnicommerceService struct {
-	ServiceCode        string
-	Logger             logger.ILogger
-	TokenManager       *auth.TokenManager
-	ProductsRepository *repository.Repository[models.Product]
+	ServiceCode             string
+	Logger                  logger.ILogger
+	TokenManager            *auth.TokenManager
+	GoogleSheetService      *GoogleSheetsService
+	ProductsRepository      *repository.Repository[models.Product]
+	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]
 }
 
-func NewUnicommerceService(tokenManager *auth.TokenManager, logger logger.ILogger, productsCollection *mongo_models.MongoCollection) *UnicommerceService {
+func NewUnicommerceService(tokenManager *auth.TokenManager, sheetService *GoogleSheetsService, logger logger.ILogger, productsCollection *mongo_models.MongoCollection, po_collections *mongo_models.MongoCollection) *UnicommerceService {
 
 	productsRepo := repository.Repository[models.Product]{Collection: productsCollection}
 
+	purchaseOrderRepo := repository.Repository[models.PurchaseOrder]{Collection: po_collections}
+
 	return &UnicommerceService{
-		ServiceCode:        constants.UNICOM_API_CODE,
-		TokenManager:       tokenManager,
-		Logger:             logger,
-		ProductsRepository: &productsRepo,
+		ServiceCode:             constants.UNICOM_API_CODE,
+		TokenManager:            tokenManager,
+		GoogleSheetService:      sheetService,
+		Logger:                  logger,
+		ProductsRepository:      &productsRepo,
+		PurchaseOrderRepository: &purchaseOrderRepo,
 	}
 }
 
@@ -340,6 +347,120 @@ func (s *UnicommerceService) getExportJobStatus(ctx context.Context, exportJobCo
 	return &exportJobStatusResponse, nil
 }
 
+// Create a function which will make a post request to unicommerce and get the inventrory snapshot, we will provide the list of SKUs
+func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []string) (map[string]int, error) {
+	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_GET_INVENTORY_SNAPSHOT)
+	if err != nil {
+		return nil, err
+	}
+
+	fullURL := baseURL + path
+
+	payload := map[string]interface{}{
+		"itemTypeSKUs": skus,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		s.Logger.Error("Error encoding payload for inventory snapshot request", "error", err)
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		s.Logger.Error("Error creating request for inventory snapshot", "error", err)
+		return nil, err
+	}
+
+	s.TokenManager.AuthenticateRequest(ctx, req)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Facility", "Salty")
+
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		s.Logger.Error("Error making request to endpoint", "error", err)
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		s.Logger.Error("Error fetching inventory snapshot", "status", resp.StatusCode)
+		return nil, err
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Error reading response body", "error", err)
+		return nil, err
+	}
+
+	var responseData struct {
+		InventorySnapshots []struct {
+			ItemTypeSKU string `json:"itemTypeSKU"`
+			Inventory   int    `json:"inventory"`
+		} `json:"inventorySnapshots"`
+	}
+
+	err = json.Unmarshal(respBody, &responseData)
+	if err != nil {
+		s.Logger.Error("Error decoding response body", "error", err)
+		return nil, err
+	}
+
+	inventoryMap := make(map[string]int)
+	for _, snapshot := range responseData.InventorySnapshots {
+		inventoryMap[snapshot.ItemTypeSKU] = snapshot.Inventory
+	}
+
+	return inventoryMap, nil
+}
+
+func (s *UnicommerceService) UpdateInventoryFromGoogleSheet(ctx context.Context) error {
+	// Read SKUs from Google Sheet
+	sheetData, err := s.GoogleSheetService.FetchGoogleSheetData(ctx)
+	if err != nil {
+		s.Logger.Error("Error reading SKUs from Google Sheet", "error", err)
+		return err
+	}
+
+	// Extract SKUs from the Google Sheet data
+	var skus []string
+	for _, row := range sheetData {
+		if len(row) > 1 {
+			skus = append(skus, row["SKU"].(string))
+		}
+	}
+
+	// Fetch inventory snapshot for all SKUs
+	inventorySnapshot, err := s.GetInventorySnapshot(ctx, skus)
+	if err != nil {
+		s.Logger.Error("Error fetching inventory snapshot", "error", err)
+		return err
+	}
+
+	// Update inventory in sheetData and save it back to Google Sheet
+	for i, row := range sheetData {
+		if len(row) > 1 {
+			sku := row["SKU"].(string)
+			if inventory, ok := inventorySnapshot[sku]; ok {
+				sheetData[i]["Quantity"] = inventory
+				sheetData[i]["Last Updated"] = time.Now().Format("2006-01-02 15:04:05")
+			}
+		}
+	}
+
+	err = s.GoogleSheetService.UpdateGoogleSheet(ctx, sheetData)
+	if err != nil {
+		s.Logger.Error("Error updating Google Sheet", "error", err)
+		return err
+	}
+
+	return nil
+}
+
 func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
 	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_UNICOM_FETCH_PRODUCTS)
 	if err != nil {
@@ -497,4 +618,42 @@ func (s *UnicommerceService) fetchFromCache(ctx context.Context, apiCode, key st
 		return "", cache.NewCacheMissError(cacheKey)
 	}
 	return strings.Trim(value, "\""), nil
+}
+
+// CreatePurchaseOrder creates a new purchase order with an incremental order number
+func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+	// Fetch the last purchase order to determine the next order number
+	lastOrder, err := s.PurchaseOrderRepository.FindOne(ctx, nil, &mongo_models.FindOptions{
+		Sort: map[string]interface{}{"orderNumber": -1},
+	})
+	if err != nil && err != mongo_errors.ErrDocumentNotFound {
+		s.Logger.Error("Error fetching last purchase order", "error", err)
+		return err
+	}
+
+	// Determine the next order number
+	var nextOrderNumber int
+	if lastOrder != nil {
+		lastOrderNumber, err := strconv.Atoi(lastOrder.OrderNumber)
+		if err != nil {
+			s.Logger.Error("Error converting last order number to integer", "error", err)
+			return err
+		}
+		nextOrderNumber = lastOrderNumber + 1
+	} else {
+		nextOrderNumber = 1
+	}
+
+	// Set the order number and order date
+	purchaseOrder.OrderNumber = strconv.Itoa(nextOrderNumber)
+	purchaseOrder.OrderDate = time.Now()
+
+	// Save the purchase order to the database
+	_, err = s.PurchaseOrderRepository.Create(ctx, purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error creating purchase order in DB", "error", err)
+		return err
+	}
+
+	return nil
 }

@@ -19,8 +19,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Build Docker image
-docker build -t ${IMAGE_NAME}:v${VERSION} .
+# Build Docker image with specified platform
+docker build --platform linux/amd64 -t ${IMAGE_NAME}:v${VERSION} .
 if [ $? -ne 0 ]; then
     echo "Docker build failed"
     exit 1

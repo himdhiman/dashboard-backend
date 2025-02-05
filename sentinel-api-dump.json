@@ -28,6 +28,3 @@
     ]
   }
 ]
-
-
-{"successful":false,"message":null,"errors":[{"code":1000,"fieldName":null,"description":"please fill valid value","message":"Unrecognized field "exportColums" (Class com.uniware.core.api.warehouse.SearchItemTypesRequest), not marked as ignorable\\n at [Source: org.springframework.web.util.ContentCachingRequestWrapper$ContentCachingInputStream@6f8e07b5; line: 1, column: 18] (through reference chain: com.uniware.core.api.warehouse.SearchItemTypesRequest[\\\"exportColums\\\"])\",\"errorParams\":null}],\"warnings\":null}

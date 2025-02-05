@@ -19,6 +19,15 @@ func MapFindOptions(opts ...*models.FindOptions) *options.FindOptions {
 	return mongoFindOptions
 }
 
+func MapFindOneOptions(opts ...*models.FindOptions) *options.FindOneOptions {
+	mongoFindOneOptions := options.FindOne()
+	if len(opts) > 0 {
+		opt := opts[0]
+		mapstructure.Decode(opt, mongoFindOneOptions)
+	}
+	return mongoFindOneOptions
+}
+
 // MapUpdateResult maps mongo.UpdateResult to custom UpdateResult
 func MapUpdateResult(mongoResult *mongo.UpdateResult) *models.UpdateResult {
 	var updateResult models.UpdateResult

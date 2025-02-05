@@ -56,3 +56,23 @@ type Product struct {
 	CreatedAt            time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt" bson:"updatedAt"`
 }
+
+type PurchaseOrderProducts struct {
+	ProductSKUCode   string  `json:"productSKUCode" bson:"productSKUCode"`
+	ImageURL         string  `json:"imageUrl" bson:"imageUrl"`
+	Quantity         int     `json:"quantity" bson:"quantity"`
+	LastBestRMBPrice float64 `json:"lastBestRMBPrice" bson:"lastBestRMBPrice"`
+	CurrentRMBPrice  float64 `json:"currentRMBPrice" bson:"currentRMBPrice"`
+	Status           string  `json:"status" bson:"status"`
+	Remarks          string  `json:"remarks" bson:"remarks"`
+	ShippingMark     string  `json:"shippingMark" bson:"shippingMark"`
+}
+
+type PurchaseOrder struct {
+	OrderNumber string                  `json:"orderNumber" bson:"orderNumber"`
+	OrderDate   time.Time               `json:"orderDate" bson:"orderDate"`
+	TotalAmount float64                 `json:"totalAmount" bson:"totalAmount"`
+	Products    []PurchaseOrderProducts `json:"products" bson:"products"`
+	Deposits    float64                 `json:"deposits" bson:"deposits"`
+	OrderStatus string                  `json:"orderStatus" bson:"orderStatus"`
+}

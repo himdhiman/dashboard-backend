@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"errors"
 
+	"github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/mappers"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,8 +18,10 @@ type IRepository[T any] interface {
 	Create(ctx context.Context, data *T) (string, error)
 	FindByID(ctx context.Context, id string) (*T, error)
 	Find(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) ([]*T, error)
+	FindOne(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) (*T, error)
 	Update(ctx context.Context, filter map[string]interface{}, update interface{}) (*models.UpdateResult, error)
 	Delete(ctx context.Context, filter map[string]interface{}) (int64, error)
+	Count(ctx context.Context, filter map[string]interface{}) (int64, error)
 }
 
 type Repository[T any] struct {
@@ -46,12 +48,12 @@ func (r *Repository[T]) CreateIndex(ctx context.Context, keys bson.D, unique boo
 func (r *Repository[T]) Create(ctx context.Context, data *T) (string, error) {
 	result, err := r.Collection.Collection.InsertOne(ctx, data)
 	if err != nil {
-		return "", err
+		return "", errors.ErrInsertFailed
 	}
 
 	id, ok := result.InsertedID.(primitive.ObjectID)
 	if !ok {
-		return "", errors.New("failed to parse inserted ID")
+		return "", errors.ErrParseInsertedID
 	}
 	return id.Hex(), nil
 }
@@ -59,19 +61,42 @@ func (r *Repository[T]) Create(ctx context.Context, data *T) (string, error) {
 // Count returns the number of documents matching the filter
 func (r *Repository[T]) Count(ctx context.Context, filter map[string]interface{}) (int64, error) {
 	bsonFilters := mappers.MapToBson(filter)
-	return r.Collection.Collection.CountDocuments(ctx, bsonFilters)
+	count, err := r.Collection.Collection.CountDocuments(ctx, bsonFilters)
+	if err != nil {
+		return 0, errors.ErrCountFailed
+	}
+	return count, nil
 }
 
 // FindByID retrieves a document by its ID
 func (r *Repository[T]) FindByID(ctx context.Context, id string) (*T, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return nil, err
+		return nil, errors.ErrInvalidObjectID
 	}
 
 	filter := bson.M{"_id": objID}
 	var result T
 	if err := r.Collection.Collection.FindOne(ctx, filter).Decode(&result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.ErrDocumentNotFound
+		}
+		return nil, err
+	}
+	return &result, nil
+}
+
+// FindOne retrieves a single document matching the filter with optional find options
+func (r *Repository[T]) FindOne(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) (*T, error) {
+	bsonFilters := mappers.MapToBson(filter)
+	mongoFindOptions := mappers.MapFindOneOptions(opts...)
+
+	var result T
+	err := r.Collection.Collection.FindOne(ctx, bsonFilters, mongoFindOptions).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.ErrDocumentNotFound
+		}
 		return nil, err
 	}
 	return &result, nil
@@ -104,7 +129,7 @@ func (r *Repository[T]) Update(ctx context.Context, filter map[string]interface{
 	updateDoc := bson.M{"$set": update}
 	result, err := r.Collection.Collection.UpdateMany(ctx, bsonFilters, updateDoc)
 	if err != nil {
-		return nil, err
+		return nil, errors.ErrUpdateFailed
 	}
 	return mappers.MapUpdateResult(result), nil
 }
@@ -114,7 +139,7 @@ func (r *Repository[T]) Delete(ctx context.Context, filter map[string]interface{
 	bsonFilters := mappers.MapToBson(filter)
 	result, err := r.Collection.Collection.DeleteMany(ctx, bsonFilters)
 	if err != nil {
-		return 0, err
+		return 0, errors.ErrDeleteFailed
 	}
 	return result.DeletedCount, nil
 }

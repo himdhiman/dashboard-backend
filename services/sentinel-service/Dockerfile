@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy the locally built binary to the container
 COPY main .
 
+# Copy the Google Sheets credentials file to the container
+COPY creds.json .
+
 # Expose the application port
 EXPOSE 8080
 
