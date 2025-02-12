@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -349,51 +350,60 @@ func (s *UnicommerceService) getExportJobStatus(ctx context.Context, exportJobCo
 
 // Create a function which will make a post request to unicommerce and get the inventrory snapshot, we will provide the list of SKUs
 func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []string) (map[string]int, error) {
+	correlationID, ok := ctx.Value(constants.CorrelationID).(string)
+	if !ok {
+		s.Logger.Error("Correlation ID not found in context")
+		return nil, errors.New("correlation ID not found in context")
+	}
+
 	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_GET_INVENTORY_SNAPSHOT)
 	if err != nil {
+		s.Logger.Error("Error fetching config", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
 	fullURL := baseURL + path
-
 	payload := map[string]interface{}{
 		"itemTypeSKUs": skus,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		s.Logger.Error("Error encoding payload for inventory snapshot request", "error", err)
+		s.Logger.Error("Error encoding payload for inventory snapshot request", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		s.Logger.Error("Error creating request for inventory snapshot", "error", err)
+		s.Logger.Error("Error creating request for inventory snapshot", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
 	s.TokenManager.AuthenticateRequest(ctx, req)
+	s.Logger.Info("Authenticated request for inventory snapshot", "correlationID", correlationID)
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Facility", "Salty")
+	s.Logger.Info("Set headers for request", "correlationID", correlationID)
 
 	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err)
+		s.Logger.Error("Error making request to endpoint", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
+	s.Logger.Info("Made request to endpoint", "status", resp.StatusCode, "correlationID", correlationID)
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		s.Logger.Error("Error fetching inventory snapshot", "status", resp.StatusCode)
+		s.Logger.Error("Error fetching inventory snapshot", "status", resp.StatusCode, "correlationID", correlationID)
 		return nil, err
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		s.Logger.Error("Error reading response body", "error", err)
+		s.Logger.Error("Error reading response body", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
@@ -406,7 +416,7 @@ func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []st
 
 	err = json.Unmarshal(respBody, &responseData)
 	if err != nil {
-		s.Logger.Error("Error decoding response body", "error", err)
+		s.Logger.Error("Error decoding response body", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
@@ -415,16 +425,27 @@ func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []st
 		inventoryMap[snapshot.ItemTypeSKU] = snapshot.Inventory
 	}
 
+	s.Logger.Info("Completed GetInventorySnapshot", "correlationID", correlationID)
 	return inventoryMap, nil
 }
 
 func (s *UnicommerceService) UpdateInventoryFromGoogleSheet(ctx context.Context) error {
+	correlationID, ok := ctx.Value(constants.CorrelationID).(string)
+	if !ok {
+		s.Logger.Error("Correlation ID not found in context")
+		return errors.New("correlation ID not found in context")
+	}
+
+	s.Logger.Info("Starting inventory update from Google Sheet", "correlationID", correlationID)
+
 	// Read SKUs from Google Sheet
+	s.Logger.Info("Fetching data from Google Sheet", "correlationID", correlationID)
 	sheetData, err := s.GoogleSheetService.FetchGoogleSheetData(ctx)
 	if err != nil {
-		s.Logger.Error("Error reading SKUs from Google Sheet", "error", err)
+		s.Logger.Error("Error reading SKUs from Google Sheet", "error", err, "correlationID", correlationID)
 		return err
 	}
+	s.Logger.Info("Successfully fetched data from Google Sheet", "rowCount", len(sheetData), "correlationID", correlationID)
 
 	// Extract SKUs from the Google Sheet data
 	var skus []string
@@ -433,30 +454,38 @@ func (s *UnicommerceService) UpdateInventoryFromGoogleSheet(ctx context.Context)
 			skus = append(skus, row["SKU"].(string))
 		}
 	}
+	s.Logger.Info("Extracted SKUs from Google Sheet data", "skuCount", len(skus), "correlationID", correlationID)
 
 	// Fetch inventory snapshot for all SKUs
+	s.Logger.Info("Fetching inventory snapshot for SKUs", "correlationID", correlationID)
 	inventorySnapshot, err := s.GetInventorySnapshot(ctx, skus)
 	if err != nil {
-		s.Logger.Error("Error fetching inventory snapshot", "error", err)
+		s.Logger.Error("Error fetching inventory snapshot", "error", err, "correlationID", correlationID)
 		return err
 	}
+	s.Logger.Info("Successfully fetched inventory snapshot", "snapshotCount", len(inventorySnapshot), "correlationID", correlationID)
 
 	// Update inventory in sheetData and save it back to Google Sheet
+	s.Logger.Info("Updating Google Sheet data with inventory snapshot", "correlationID", correlationID)
 	for i, row := range sheetData {
 		if len(row) > 1 {
 			sku := row["SKU"].(string)
 			if inventory, ok := inventorySnapshot[sku]; ok {
 				sheetData[i]["Quantity"] = inventory
 				sheetData[i]["Last Updated"] = time.Now().Format("2006-01-02 15:04:05")
+			} else {
+				s.Logger.Warn("No inventory data found for SKU", "SKU", sku, "correlationID", correlationID)
 			}
 		}
 	}
 
+	s.Logger.Info("Saving updated data back to Google Sheet", "correlationID", correlationID)
 	err = s.GoogleSheetService.UpdateGoogleSheet(ctx, sheetData)
 	if err != nil {
-		s.Logger.Error("Error updating Google Sheet", "error", err)
+		s.Logger.Error("Error updating Google Sheet", "error", err, "correlationID", correlationID)
 		return err
 	}
+	s.Logger.Info("Successfully updated Google Sheet", "correlationID", correlationID)
 
 	return nil
 }

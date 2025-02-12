@@ -106,7 +106,7 @@ func main() {
 
 	worker.StartConfigSync(collection, cache, logger)
 
-	googleSheetsService := services.NewGoogleSheetsService(spreadsheetID, sheetName, credentials)
+	googleSheetsService := services.NewGoogleSheetsService(spreadsheetID, sheetName, credentials, logger)
 	cryptoInstance := crypto.NewCrypto(secretKey, initializationVector)
 	authentication := auth.NewAuthentication(cache, logger, cryptoInstance)
 	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
@@ -138,8 +138,9 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
-	exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
-	exportJobScheduler.Start(ctx)
+
+	// exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
+	// exportJobScheduler.Start(ctx)
 
 	// start invetory snapshot scheduler
 	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(collection, unicommerceService, logger)

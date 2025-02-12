@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 )
 
@@ -33,14 +35,28 @@ func NewInventorySnapShotScheduler(collection *models.MongoCollection, service *
 func (e *InventorySnapShotScheduler) Start(ctx context.Context) error {
 	config := scheduler.JobConfig{
 		Name:        "snapshot-inventory",
-		CronExpr:    "0 */5 * * * *", // Every 30 minutes
+		CronExpr:    "0 */5 * * * *", // For every 5 minutes
 		Params:      map[string]interface{}{},
 		MaxRetries:  3,
 		IsRecurring: true,
 	}
 
+	e.logger.Info("Configuring scheduled job", "jobName", config.Name, "cronExpr", config.CronExpr)
+
 	err := e.scheduler.Schedule(ctx, config, func(ctx context.Context, params map[string]interface{}) error {
-		return e.service.UpdateInventoryFromGoogleSheet(ctx)
+		correlationID := uuid.New().String()
+		e.logger.Info("Starting scheduled job", "correlationID", correlationID)
+		ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+		e.logger.Info("Calling UpdateInventoryFromGoogleSheet", "correlationID", correlationID)
+		err := e.service.UpdateInventoryFromGoogleSheet(ctx)
+		if err != nil {
+			e.logger.Error("UpdateInventoryFromGoogleSheet failed", "correlationID", correlationID, "error", err)
+			return err
+		}
+
+		e.logger.Info("UpdateInventoryFromGoogleSheet succeeded", "correlationID", correlationID)
+		return nil
 	})
 
 	if err != nil {
@@ -48,7 +64,9 @@ func (e *InventorySnapShotScheduler) Start(ctx context.Context) error {
 		return err
 	}
 
+	e.logger.Info("Starting scheduler")
 	e.scheduler.Start()
+	e.logger.Info("Scheduler started successfully")
 	return nil
 }
 

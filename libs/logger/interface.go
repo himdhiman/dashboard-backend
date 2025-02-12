@@ -32,8 +32,10 @@ type Fields map[string]interface{}
 type ILogger interface {
 	Debug(msg string, args ...interface{})
 	Info(msg string, args ...interface{})
+	Infof(format string, args ...interface{})
 	Warn(msg string, args ...interface{})
 	Error(msg string, args ...interface{})
+	Errorf(format string, args ...interface{})
 	Fatal(msg string, args ...interface{})
 
 	// Context-based logging

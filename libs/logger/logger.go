@@ -193,12 +193,22 @@ func (cl *ContextualLogger) Info(msg string, args ...interface{}) {
 	cl.base.log(LevelInfo, msg, args...)
 }
 
+func (cl *ContextualLogger) Infof(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	cl.Info(msg)
+}
+
 func (cl *ContextualLogger) Warn(msg string, args ...interface{}) {
 	cl.base.log(LevelWarn, msg, args...)
 }
 
 func (cl *ContextualLogger) Error(msg string, args ...interface{}) {
 	cl.base.log(LevelError, msg, args...)
+}
+
+func (cl *ContextualLogger) Errorf(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	cl.Error(msg)
 }
 
 func (cl *ContextualLogger) Fatal(msg string, args ...interface{}) {
@@ -244,6 +254,11 @@ func (fl *FieldLogger) Info(msg string, args ...interface{}) {
 	fl.base.log(LevelInfo, msg, convertFieldsToArgs(mergedFields)...)
 }
 
+func (fl *FieldLogger) Infof(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fl.Info(msg)
+}
+
 func (fl *FieldLogger) Warn(msg string, args ...interface{}) {
 	mergedFields := mergeFields(fl.fields, args)
 	fl.base.log(LevelWarn, msg, convertFieldsToArgs(mergedFields)...)
@@ -252,6 +267,11 @@ func (fl *FieldLogger) Warn(msg string, args ...interface{}) {
 func (fl *FieldLogger) Error(msg string, args ...interface{}) {
 	mergedFields := mergeFields(fl.fields, args)
 	fl.base.log(LevelError, msg, convertFieldsToArgs(mergedFields)...)
+}
+
+func (fl *FieldLogger) Errorf(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fl.Error(msg)
 }
 
 func (fl *FieldLogger) Fatal(msg string, args ...interface{}) {

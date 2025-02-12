@@ -1,5 +1,9 @@
 package constants
 
+type ContextKey string
+
+const CorrelationID ContextKey = "correlationID"
+
 const (
 	UNICOM_API_CODE = "UNICOM_SALTY"
 

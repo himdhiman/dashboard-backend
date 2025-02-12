@@ -70,6 +70,7 @@ type PurchaseOrderProducts struct {
 
 type PurchaseOrder struct {
 	OrderNumber string                  `json:"orderNumber" bson:"orderNumber"`
+	Vendor      string                  `json:"vendor" bson:"vendor"`
 	OrderDate   time.Time               `json:"orderDate" bson:"orderDate"`
 	TotalAmount float64                 `json:"totalAmount" bson:"totalAmount"`
 	Products    []PurchaseOrderProducts `json:"products" bson:"products"`

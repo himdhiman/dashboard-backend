@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
@@ -121,24 +122,111 @@ func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 func (uc *UnicommerceController) SearchProduct(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	skuCode := c.Query("skuCode")
-	name := c.Query("name")
+	var request struct {
+		SKUCode string   `json:"skuCode"`
+		Name    string   `json:"name"`
+		Fields  []string `json:"fields"`
+	}
 
-	products, err := uc.Service.SearchProduct(ctx, skuCode, name)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		uc.Logger.Error("Error binding JSON", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	products, err := uc.Service.SearchProduct(ctx, request.SKUCode, request.Name)
 	if err != nil {
 		uc.Logger.Error("Error searching products", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search products"})
 		return
 	}
 
-	// Create a response with only name and sku
-	response := make([]map[string]string, len(products))
+	response := make([]map[string]interface{}, len(products))
 	for i, product := range products {
-		response[i] = map[string]string{
-			"name": product.Name,
-			"sku":  product.SKUCode,
+		productMap := make(map[string]interface{})
+		for _, field := range request.Fields {
+			switch field {
+			case "name":
+				productMap["name"] = product.Name
+			case "sku":
+				productMap["sku"] = product.SKUCode
+			case "imageUrl":
+				productMap["imageUrl"] = product.ImageURL
+			case "primaryVendor":
+				productMap["primaryVendor"] = product.PrimaryVendor
+			case "lastProcuredRmbPrice":
+				productMap["lastProcuredRmbPrice"] = product.LastProcuredRmbPrice
+			case "createdAt":
+				productMap["createdAt"] = product.CreatedAt
+			case "updatedAt":
+				productMap["updatedAt"] = product.UpdatedAt
+			default:
+				uc.Logger.Warn("Unknown field requested", "field", field)
+			}
 		}
+		response[i] = productMap
 	}
 
 	c.JSON(http.StatusOK, gin.H{"products": response})
+}
+
+func (uc *UnicommerceController) CreatePurchaseOrder(c *gin.Context) {
+	type CreatePurchaseOrderDTO struct {
+		Vendor      string  `json:"vendor" binding:"required"`
+		TotalAmount float64 `json:"totalAmount" binding:"required"`
+		Deposits    float64 `json:"deposits" binding:"required"`
+		OrderStatus string  `json:"orderStatus" binding:"required"`
+		Products    []struct {
+			SKUCode         string  `json:"skuCode" binding:"required"`
+			ImageURL        string  `json:"imageUrl" binding:"required"`
+			Quantity        int     `json:"quantity" binding:"required"`
+			CurrentRMBPrice float64 `json:"currentRMBPrice" binding:"required"`
+			Status          string  `json:"status" binding:"required"`
+			Remarks         string  `json:"remarks" binding:"required"`
+			ShippingMark    string  `json:"shippingMark" binding:"required"`
+		} `json:"products" binding:"required,dive"`
+	}
+
+	var dto CreatePurchaseOrderDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		uc.Logger.Error("Error binding JSON", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	purchaseOrder := models.PurchaseOrder{
+		Vendor:      dto.Vendor,
+		OrderDate:   time.Now(),
+		TotalAmount: dto.TotalAmount,
+		Deposits:    dto.Deposits,
+		OrderStatus: dto.OrderStatus,
+		Products:    make([]models.PurchaseOrderProducts, len(dto.Products)),
+	}
+
+	for i, item := range dto.Products {
+		purchaseOrder.Products[i] = models.PurchaseOrderProducts{
+			ProductSKUCode:  item.SKUCode,
+			ImageURL:        item.ImageURL,
+			Quantity:        item.Quantity,
+			CurrentRMBPrice: item.CurrentRMBPrice,
+			Status:          item.Status,
+			Remarks:         item.Remarks,
+			ShippingMark:    item.ShippingMark,
+		}
+	}
+
+	if err := c.ShouldBindJSON(&purchaseOrder); err != nil {
+		uc.Logger.Error("Error binding JSON", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	err := uc.Service.CreatePurchaseOrder(c.Request.Context(), &purchaseOrder)
+	if err != nil {
+		uc.Logger.Error("Error creating purchase order", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create purchase order"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.OrderNumber})
 }
