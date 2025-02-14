@@ -36,12 +36,13 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 	unicommerceController := controllers.NewUnicommerceController(logger, unicommerceService, taskManager)
 
 	router.GET("/unicommerce/products", unicommerceController.GetProducts)
-	router.POST("/unicommerce/products/fetch", unicommerceController.FetchProducts)
+	// router.POST("/unicommerce/products/fetch", unicommerceController.FetchProducts)
 
 	router.POST("/unicommerce/create/job", unicommerceController.CreateExportJob)
 
 	router.POST("/search-products", unicommerceController.SearchProduct)
 
+	router.GET("/unicommerce/purchase-order/get", unicommerceController.GetPurchaseOrders)
 	router.POST("/unicommerce/purchase-order/create", unicommerceController.CreatePurchaseOrder)
 
 	return router

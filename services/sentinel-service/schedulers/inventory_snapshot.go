@@ -35,7 +35,7 @@ func NewInventorySnapShotScheduler(collection *models.MongoCollection, service *
 func (e *InventorySnapShotScheduler) Start(ctx context.Context) error {
 	config := scheduler.JobConfig{
 		Name:        "snapshot-inventory",
-		CronExpr:    "0 */5 * * * *", // For every 5 minutes
+		CronExpr:    "0 */30 * * * *", // For every 30 minutes
 		Params:      map[string]interface{}{},
 		MaxRetries:  3,
 		IsRecurring: true,

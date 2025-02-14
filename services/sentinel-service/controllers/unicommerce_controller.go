@@ -4,14 +4,16 @@ import (
 	"context"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/task"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/dto"
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/mappers"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
+	"github.com/mitchellh/mapstructure"
 )
 
 type UnicommerceController struct {
@@ -171,62 +173,85 @@ func (uc *UnicommerceController) SearchProduct(c *gin.Context) {
 }
 
 func (uc *UnicommerceController) CreatePurchaseOrder(c *gin.Context) {
-	type CreatePurchaseOrderDTO struct {
-		Vendor      string  `json:"vendor" binding:"required"`
-		TotalAmount float64 `json:"totalAmount" binding:"required"`
-		Deposits    float64 `json:"deposits" binding:"required"`
-		OrderStatus string  `json:"orderStatus" binding:"required"`
-		Products    []struct {
-			SKUCode         string  `json:"skuCode" binding:"required"`
-			ImageURL        string  `json:"imageUrl" binding:"required"`
-			Quantity        int     `json:"quantity" binding:"required"`
-			CurrentRMBPrice float64 `json:"currentRMBPrice" binding:"required"`
-			Status          string  `json:"status" binding:"required"`
-			Remarks         string  `json:"remarks" binding:"required"`
-			ShippingMark    string  `json:"shippingMark" binding:"required"`
-		} `json:"products" binding:"required,dive"`
-	}
+	var dto dto.CreatePurchaseOrderDTO
 
-	var dto CreatePurchaseOrderDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
 		uc.Logger.Error("Error binding JSON", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
 		return
 	}
 
-	purchaseOrder := models.PurchaseOrder{
-		Vendor:      dto.Vendor,
-		OrderDate:   time.Now(),
-		TotalAmount: dto.TotalAmount,
-		Deposits:    dto.Deposits,
-		OrderStatus: dto.OrderStatus,
-		Products:    make([]models.PurchaseOrderProducts, len(dto.Products)),
+	var purchaseOrder models.PurchaseOrder
+	config := &mapstructure.DecoderConfig{
+		DecodeHook: mappers.DecodeTimeHookFunc(),
+		Result:     &purchaseOrder,
 	}
-
-	for i, item := range dto.Products {
-		purchaseOrder.Products[i] = models.PurchaseOrderProducts{
-			ProductSKUCode:  item.SKUCode,
-			ImageURL:        item.ImageURL,
-			Quantity:        item.Quantity,
-			CurrentRMBPrice: item.CurrentRMBPrice,
-			Status:          item.Status,
-			Remarks:         item.Remarks,
-			ShippingMark:    item.ShippingMark,
-		}
-	}
-
-	if err := c.ShouldBindJSON(&purchaseOrder); err != nil {
-		uc.Logger.Error("Error binding JSON", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		uc.Logger.Error("Error creating decoder", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create decoder"})
 		return
 	}
 
-	err := uc.Service.CreatePurchaseOrder(c.Request.Context(), &purchaseOrder)
+	if err := decoder.Decode(dto); err != nil {
+		uc.Logger.Error("Error mapping DTO to model", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to map request payload"})
+		return
+	}
+
+	err = uc.Service.CreatePurchaseOrder(c.Request.Context(), &purchaseOrder)
 	if err != nil {
 		uc.Logger.Error("Error creating purchase order", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create purchase order"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.OrderNumber})
+	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.PONumber})
+}
+
+
+func (uc *UnicommerceController) GetPurchaseOrders(c *gin.Context) {
+	// Parse query parameters
+
+	pageNumberStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+	orderNumber := c.DefaultQuery("orderNumber", "")
+
+	pageNumber, err := strconv.Atoi(pageNumberStr)
+	if err != nil || pageNumber < 1 {
+		pageNumber = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	// Fetch purchase orders
+	ctx := c.Request.Context()
+	purchaseOrdersPtr, total, err := uc.Service.GetPurchaseOrders(ctx, orderNumber, pageNumber, limit)
+	if err != nil {
+		uc.Logger.Error("Error fetching purchase orders", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch purchase orders"})
+		return
+	}
+
+	purchaseOrders := make([]models.PurchaseOrder, len(purchaseOrdersPtr))
+	for i, p := range purchaseOrdersPtr {
+		purchaseOrders[i] = *p
+	}
+
+	response := struct {
+		Data  []models.PurchaseOrder `json:"data"`
+		Total int                    `json:"total"`
+		Page  int                    `json:"page"`
+		Limit int                    `json:"limit"`
+	}{
+		Data:  purchaseOrders,
+		Total: int(total),
+		Page:  pageNumber,
+		Limit: limit,
+	}
+
+	c.JSON(http.StatusOK, response)
 }

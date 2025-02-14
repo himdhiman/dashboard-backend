@@ -139,8 +139,8 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	// exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
-	// exportJobScheduler.Start(ctx)
+	exportJobScheduler := schedulers.NewExportJobScheduler(collection, unicommerceService, logger)
+	exportJobScheduler.Start(ctx)
 
 	// start invetory snapshot scheduler
 	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(collection, unicommerceService, logger)

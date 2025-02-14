@@ -6,12 +6,14 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator"
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
@@ -663,7 +665,7 @@ func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOr
 	// Determine the next order number
 	var nextOrderNumber int
 	if lastOrder != nil {
-		lastOrderNumber, err := strconv.Atoi(lastOrder.OrderNumber)
+		lastOrderNumber, err := strconv.Atoi(lastOrder.PONumber)
 		if err != nil {
 			s.Logger.Error("Error converting last order number to integer", "error", err)
 			return err
@@ -673,9 +675,19 @@ func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOr
 		nextOrderNumber = 1
 	}
 
-	// Set the order number and order date
-	purchaseOrder.OrderNumber = strconv.Itoa(nextOrderNumber)
+	// Format the PO number as PO/(vendor)/(date)01
+	vendor := purchaseOrder.Vendor
+	date := time.Now().Format("20060102")
+	purchaseOrder.PONumber = fmt.Sprintf("PO/%s/%s/%02d", vendor, date, nextOrderNumber)
+
+	// Set the order date
 	purchaseOrder.OrderDate = time.Now()
+
+	validate := validator.New()
+	if err := validate.Struct(purchaseOrder); err != nil {
+		s.Logger.Error("Validation error", "error", err)
+		return err
+	}
 
 	// Save the purchase order to the database
 	_, err = s.PurchaseOrderRepository.Create(ctx, purchaseOrder)
@@ -685,4 +697,34 @@ func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOr
 	}
 
 	return nil
+}
+
+func (s *UnicommerceService) GetPurchaseOrders(ctx context.Context, poNumber string, pageNumber int, fieldsPerPage int) ([]*models.PurchaseOrder, int64, error) {
+	filter := map[string]interface{}{}
+	if poNumber != "" {
+		filter["poNumber"] = poNumber
+	}
+
+	// Ensure pageNumber is at least 1
+	if pageNumber < 1 {
+		pageNumber = 1
+	}
+
+	purchaseOrders, err := s.PurchaseOrderRepository.Find(ctx, filter, &mongo_models.FindOptions{
+		Limit: int64(fieldsPerPage),
+		Skip:  int64((pageNumber - 1) * fieldsPerPage),
+	})
+
+	if err != nil {
+		s.Logger.Error("Error fetching purchase orders", "error", err)
+		return nil, 0, err
+	}
+
+	cnt, err := s.PurchaseOrderRepository.Count(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase orders count", "error", err)
+		return nil, 0, err
+	}
+
+	return purchaseOrders, cnt, nil
 }
