@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
@@ -665,7 +667,9 @@ func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOr
 	// Determine the next order number
 	var nextOrderNumber int
 	if lastOrder != nil {
-		lastOrderNumber, err := strconv.Atoi(lastOrder.PONumber)
+		re := regexp.MustCompile(`\d+$`)
+		lastOrderNumberStr := re.FindString(lastOrder.PONumber)
+		lastOrderNumber, err := strconv.Atoi(lastOrderNumberStr)
 		if err != nil {
 			s.Logger.Error("Error converting last order number to integer", "error", err)
 			return err
@@ -682,18 +686,171 @@ func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOr
 
 	// Set the order date
 	purchaseOrder.OrderDate = time.Now()
-
-	validate := validator.New()
-	if err := validate.Struct(purchaseOrder); err != nil {
-		s.Logger.Error("Validation error", "error", err)
-		return err
-	}
+	purchaseOrder.UpdatedAt = time.Now()
 
 	// Save the purchase order to the database
 	_, err = s.PurchaseOrderRepository.Create(ctx, purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error creating purchase order in DB", "error", err)
 		return err
+	}
+
+	return nil
+}
+
+func (s *UnicommerceService) UpdatePurchaseOrder(ctx context.Context, poNumber string, updates map[string]interface{}) error {
+	// Fetch the purchase order
+	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"poNumber": poNumber}, nil)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase order", "error", err)
+		return err
+	}
+
+	// Update the fields
+	for fieldPath, value := range updates {
+		if !isAllowedField(fieldPath) {
+			return fmt.Errorf("field %s is not allowed to be updated", fieldPath)
+		}
+
+		err := setField(purchaseOrder, fieldPath, value)
+		if err != nil {
+			s.Logger.Error("Error setting field", "fieldPath", fieldPath, "error", err)
+			return err
+		}
+	}
+
+	// Update the updatedAt field
+	purchaseOrder.UpdatedAt = time.Now()
+
+	// validate the purchase order use validator v10
+
+	validator := validator.New()
+	err = validator.Struct(purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error validating purchase order", "error", err)
+		return err
+	}
+
+	// Save the updated purchase order
+	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"poNumber": poNumber}, purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error updating purchase order in DB", "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func isAllowedField(fieldPath string) bool {
+
+	var allowedFields = map[string]bool{
+		"OrderStatus":           true,
+		"TotalAmount":           true,
+		"TentativeDispatchDate": true,
+		"Remarks":               true,
+	}
+
+	var allowedProductFields = map[string]bool{
+		"Quantity":        true,
+		"CurrentRMBPrice": true,
+		"Status":          true,
+		"Remarks":         true,
+		"ShippingMark":    true,
+	}
+
+	fields := strings.Split(fieldPath, ".")
+	if len(fields) == 1 {
+		return allowedFields[fields[0]]
+	} else if len(fields) == 3 && fields[0] == "Products" {
+		return allowedProductFields[fields[2]]
+	}
+	return false
+}
+
+// setField navigates through obj based on the dot-separated fieldPath.
+// It supports nested fields and a special handling for Products where the second token is the SKU.
+func setField(obj interface{}, fieldPath string, value interface{}) error {
+	fields := strings.Split(fieldPath, ".")
+	// Start with the base object; we assume obj is a pointer.
+	v := reflect.ValueOf(obj).Elem()
+
+	// Process the fields one by one.
+	for len(fields) > 0 {
+		field := fields[0]
+		fields = fields[1:]
+
+		if field == "Products" {
+			// We expect the next token to be the SKU.
+			if len(fields) < 2 {
+				return fmt.Errorf("invalid field path for Products: %s", fieldPath)
+			}
+			sku := fields[0]
+			// Consume the SKU token.
+			fields = fields[1:]
+			productsField := v.FieldByName("Products")
+			if !productsField.IsValid() {
+				return fmt.Errorf("no such field: Products")
+			}
+			if productsField.Kind() != reflect.Slice {
+				return fmt.Errorf("products field is not a slice")
+			}
+			var product reflect.Value
+			found := false
+			for i := 0; i < productsField.Len(); i++ {
+				candidate := productsField.Index(i)
+				if candidate.FieldByName("SkuCode").String() == sku {
+					product = candidate
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("product with SKU %s not found", sku)
+			}
+			// Set v to the found product so that we can update its fields.
+			v = product
+		} else {
+			// If there are no more tokens, this is the field to set.
+			if len(fields) == 0 {
+				f := v.FieldByName(field)
+				if !f.IsValid() {
+					return fmt.Errorf("no such field: %s in object", field)
+				}
+				if !f.CanSet() {
+					return fmt.Errorf("cannot set field %s", field)
+				}
+				val := reflect.ValueOf(value)
+				// Special handling if the field is a time.Time.
+				if f.Type() == reflect.TypeOf(time.Time{}) {
+					str, ok := value.(string)
+					if !ok {
+						return fmt.Errorf("expected string value for time field %s", field)
+					}
+					parsedTime, err := time.Parse(time.RFC3339, str)
+					if err != nil {
+						return fmt.Errorf("error parsing time for field %s: %v", field, err)
+					}
+					val = reflect.ValueOf(parsedTime)
+				} else if f.Type() != val.Type() {
+					return fmt.Errorf("provided value type didn't match field %s type: expected %s but got %s", field, f.Type(), val.Type())
+				}
+				f.Set(val)
+				return nil
+			} else {
+				// Not the final field: descend into the next struct field.
+				v = v.FieldByName(field)
+				if !v.IsValid() {
+					return fmt.Errorf("no such field: %s in object", field)
+				}
+				// If the field is a pointer, ensure it's not nil.
+				if v.Kind() == reflect.Ptr {
+					if v.IsNil() {
+						v.Set(reflect.New(v.Type().Elem()))
+					}
+					v = v.Elem()
+				}
+			}
+		}
 	}
 
 	return nil

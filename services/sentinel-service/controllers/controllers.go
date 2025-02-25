@@ -32,6 +32,7 @@ func (uc *Controller) GetTaskStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, task)
 }
 
-
-
-
+// create a health check endpoint
+func (uc *Controller) HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}

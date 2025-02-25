@@ -12,7 +12,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-Correlation-ID")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
@@ -31,6 +31,8 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 	router.Use(CORSMiddleware())
 
 	controller := controllers.NewController(logger, taskManager)
+
+	router.GET("/health", controller.HealthCheck)
 	router.GET("/tasks/:task_id", controller.GetTaskStatus)
 
 	unicommerceController := controllers.NewUnicommerceController(logger, unicommerceService, taskManager)
@@ -42,8 +44,9 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 
 	router.POST("/search-products", unicommerceController.SearchProduct)
 
-	router.GET("/unicommerce/purchase-order/get", unicommerceController.GetPurchaseOrders)
-	router.POST("/unicommerce/purchase-order/create", unicommerceController.CreatePurchaseOrder)
+	router.GET("/purchase-order", unicommerceController.GetPurchaseOrders)
+	router.POST("/purchase-order", unicommerceController.CreatePurchaseOrder)
+	router.PUT("/purchase-orders", unicommerceController.UpdatePurchaseOrder)
 
 	return router
 }
