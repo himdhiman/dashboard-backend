@@ -7,13 +7,14 @@ import (
 	"os"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
+	"github.com/himdhiman/dashboard-backend/libs/conflux"
+
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/task"
 	"github.com/joho/godotenv"
 
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/schedulers"
@@ -108,7 +109,7 @@ func main() {
 
 	googleSheetsService := services.NewGoogleSheetsService(spreadsheetID, sheetName, credentials, logger)
 	cryptoInstance := crypto.NewCrypto(secretKey, initializationVector)
-	authentication := auth.NewAuthentication(cache, logger, cryptoInstance)
+	authentication := conflux.NewAuthentication(cache, logger, cryptoInstance)
 	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
 
 	collectionName = "unicom_products"

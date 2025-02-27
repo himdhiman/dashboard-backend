@@ -21,7 +21,6 @@ import (
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/auth"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
 )
@@ -29,7 +28,7 @@ import (
 type UnicommerceService struct {
 	ServiceCode             string
 	Logger                  logger.ILogger
-	TokenManager            *auth.TokenManager
+	TokenManager            *conflux
 	GoogleSheetService      *GoogleSheetsService
 	ProductsRepository      *repository.Repository[models.Product]
 	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]

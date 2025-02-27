@@ -12,6 +12,7 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20241218093311-5bed961e82ae
 	github.com/himdhiman/dashboard-backend/libs/scheduler v0.0.0-20241218052858-2f8483cbcb4a
 	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20241218093311-5bed961e82ae
+	github.com/himdhiman/dashboard-backend/libs/conflux v0.0.0-20250227105555-5bed961e82ae
 	github.com/joho/godotenv v1.5.1
 	github.com/mitchellh/mapstructure v1.5.0
 	google.golang.org/api v0.219.0
@@ -28,6 +29,8 @@ replace github.com/himdhiman/dashboard-backend/libs/crypto => ../../libs/crypto
 replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
+
+replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
 
 require (
 	cloud.google.com/go/auth v0.14.0 // indirect
