@@ -657,7 +657,7 @@ func (s *UnicommerceService) fetchFromCache(ctx context.Context, apiCode, key st
 func (s *UnicommerceService) CreatePurchaseOrder(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
 	// Fetch the last purchase order to determine the next order number
 	lastOrder, err := s.PurchaseOrderRepository.FindOne(ctx, nil, &mongo_models.FindOptions{
-		Sort: map[string]interface{}{"orderNumber": -1},
+		Sort: map[string]interface{}{"poNumber": -1},
 	})
 	if err != nil && err != mongo_errors.ErrDocumentNotFound {
 		s.Logger.Error("Error fetching last purchase order", "error", err)
