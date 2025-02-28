@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
-	"github.com/himdhiman/dashboard-backend/libs/conflux"
+	conflux_auth "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/auth"
 
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
@@ -109,8 +109,8 @@ func main() {
 
 	googleSheetsService := services.NewGoogleSheetsService(spreadsheetID, sheetName, credentials, logger)
 	cryptoInstance := crypto.NewCrypto(secretKey, initializationVector)
-	authentication := conflux.NewAuthentication(cache, logger, cryptoInstance)
-	tokenManager := auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
+	authentication := conflux_auth.NewAuthentication(cache, logger, cryptoInstance)
+	tokenManager := conflux_auth.NewTokenManager(cache, logger, cryptoInstance, constants.UNICOM_API_CODE, authentication)
 
 	collectionName = "unicom_products"
 	collection, err = mongoClient.GetCollection(context.Background(), collectionName)
