@@ -28,6 +28,28 @@ func (c *CacheClient) Get(ctx context.Context, key string, result interface{}) e
 	return nil
 }
 
+func (c *CacheClient) GetMulti(ctx context.Context, keys []string, result interface{}) error {
+	start := time.Now()
+
+	generatedKey := c.buildKeys(keys...)
+	data, err := c.client.Get(ctx, generatedKey).Bytes()
+	if err == redis.Nil {
+		return NewCacheMissError(generatedKey)
+	}
+	if err != nil {
+		c.logger.WithFields(c.getLogFields(generatedKey)).WithError(err).Error("Failed to get cache")
+		return err
+	}
+
+	err = c.deserializeValue(data, result)
+	if err != nil {
+		return NewCacheInvalidError("failed to deserialize value")
+	}
+
+	c.logger.WithFields(c.getLogFields(generatedKey)).WithField("duration", time.Since(start)).Debug("Cache hit")
+	return nil
+}
+
 // GetSet atomically sets a new value and returns the old value
 func (c *CacheClient) GetSet(ctx context.Context, key string, value interface{}, result interface{}) error {
 	start := time.Now()

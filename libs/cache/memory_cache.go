@@ -88,6 +88,25 @@ func (m *MemoryCache) Get(ctx context.Context, key string, result interface{}) e
 	return m.deserializeValue(entry.value, result)
 }
 
+func (m *MemoryCache) GetMulti(ctx context.Context, keys []string, result interface{}) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	generatedKey := m.buildKeys(keys...)
+
+	entry, exists := m.data[generatedKey]
+	if !exists {
+		return NewCacheMissError(generatedKey)
+	}
+
+	if entry.expiration != nil && time.Now().After(*entry.expiration) {
+		delete(m.data, generatedKey)
+		return NewCacheMissError(generatedKey)
+	}
+
+	return m.deserializeValue(entry.value, result)
+}
+
 func (m *MemoryCache) Delete(ctx context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

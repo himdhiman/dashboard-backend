@@ -5,28 +5,28 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
-	interfaces "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/interface"
-	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/cache"
+	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/auth"
+	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
+	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
 
 type ConfluxAPIClient struct {
 	models.APIConfig
-	auth       interfaces.AuthenticationStrategy
-	httpClient *http.Client
-	logger     logger.ILogger
-	cache      cache.Cacher
+	tokenManager *auth.TokenManager
+	httpClient   *http.Client
+	logger       logger.ILogger
+	cache        cache.Cacher
 }
 
 // NewConfluxAPIClient creates a new instance of ConfluxAPIClient
-func NewConfluxAPIClient(config models.APIConfig, auth interfaces.AuthenticationStrategy, httpClient *http.Client, logger logger.ILogger, cache cache.Cacher) *ConfluxAPIClient {
+func NewConfluxAPIClient(config models.APIConfig, tokenManager *auth.TokenManager, httpClient *http.Client, logger logger.ILogger, cache cache.Cacher) *ConfluxAPIClient {
 	return &ConfluxAPIClient{
-		APIConfig:  config,
-		auth:       auth,
-		httpClient: httpClient,
-		logger:     logger,
-		cache:      cache,
+		APIConfig:    config,
+		tokenManager: tokenManager,
+		httpClient:   httpClient,
+		logger:       logger,
+		cache:        cache,
 	}
 }
 
@@ -58,7 +58,7 @@ func (c *ConfluxAPIClient) DoRequest(ctx context.Context, req *models.APIRequest
 	// If a BearerToken is set, add it to the request.
 	if token.AccessToken != "" {
 		c.logger.Debug("Adding bearer token to request")
-		httpReq.Header.Set("Authorization", "Bearer " + token.AccessToken)
+		httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	}
 
 	// Execute the HTTP request.
@@ -87,7 +87,7 @@ func (c *ConfluxAPIClient) DoRequest(ctx context.Context, req *models.APIRequest
 // FetchTokens delegates token fetching to the authentication strategy.
 func (c *ConfluxAPIClient) FetchTokens(ctx context.Context, apiName string) (*models.TokenResponse, error) {
 	c.logger.Info("Fetching tokens", "apiName", apiName)
-	tokens, err := c.auth.FetchTokens(ctx, apiName)
+	tokens, err := c.tokenManager.AuthStrategy.FetchTokens(ctx, apiName)
 	if err != nil {
 		c.logger.Error("Failed to fetch tokens", "apiName", apiName, "error", err)
 		return nil, err
@@ -99,7 +99,7 @@ func (c *ConfluxAPIClient) FetchTokens(ctx context.Context, apiName string) (*mo
 // RefreshTokens delegates token refreshing to the authentication strategy.
 func (c *ConfluxAPIClient) RefreshTokens(ctx context.Context, apiName string) (*models.TokenResponse, error) {
 	c.logger.Info("Refreshing tokens", "apiName", apiName)
-	tokens, err := c.auth.RefreshTokens(ctx, apiName)
+	tokens, err := c.tokenManager.AuthStrategy.RefreshTokens(ctx, apiName)
 	if err != nil {
 		c.logger.Error("Failed to refresh tokens", "apiName", apiName, "error", err)
 		return nil, err

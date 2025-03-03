@@ -13,27 +13,29 @@ import (
 )
 
 type BasicAuthStrategy struct {
-	Credentials string
-	Logger   logger.ILogger
+	AuthURL     string
+	Credentials models.Credentials
+	Logger      logger.ILogger
 }
 
 // NewBasicAuthStrategy initializes a new instance of BasicAuthStrategy.
-func NewBasicAuthStrategy(credentials string, logger logger.ILogger) *BasicAuthStrategy {
+func NewBasicAuthStrategy(credentials models.Credentials, authURL string, logger logger.ILogger) *BasicAuthStrategy {
 	return &BasicAuthStrategy{
+		AuthURL:     authURL,
 		Credentials: credentials,
-		Logger:   logger,
+		Logger:      logger,
 	}
 }
 
 // FetchTokens fetches new access and refresh tokens using Basic Authentication.
-func (b *BasicAuthStrategy) FetchTokens(ctx context.Context) (*models.TokenMetadata, error) {
+func (b *BasicAuthStrategy) FetchTokens(ctx context.Context) (*models.TokenResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.AuthURL, nil)
 	if err != nil {
 		b.Logger.Error("Error creating request for FetchTokens", "error", err)
 		return nil, err
 	}
 
-	req.SetBasicAuth(b.Username, b.Password)
+	req.SetBasicAuth(b.Credentials.Username, b.Credentials.ClientSecret)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -47,7 +49,7 @@ func (b *BasicAuthStrategy) FetchTokens(ctx context.Context) (*models.TokenMetad
 		return nil, fmt.Errorf("failed to fetch tokens: %v", resp.StatusCode)
 	}
 
-	var tokenResponse models.TokenMetadata
+	var tokenResponse models.TokenResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
 		b.Logger.Error("Error decoding token response", "error", err)
@@ -57,6 +59,8 @@ func (b *BasicAuthStrategy) FetchTokens(ctx context.Context) (*models.TokenMetad
 	if tokenResponse.AccessToken == "" || tokenResponse.RefreshToken == "" {
 		return nil, errors.New("invalid token response from server")
 	}
+
+	tokenResponse.CreatedAt = time.Now()
 
 	b.Logger.Info("Successfully fetched tokens")
 	return &tokenResponse, nil

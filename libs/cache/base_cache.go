@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
@@ -30,6 +31,10 @@ func NewBaseCache(prefix string, timeout time.Duration, loggerInstance logger.IL
 // buildKey constructs the full cache key with prefix
 func (b *BaseCache) buildKey(key string) string {
 	return b.prefix + key
+}
+
+func (b *BaseCache) buildKeys(keys ...string) string {
+	return b.prefix + strings.Join(keys, ":")
 }
 
 // getLogFields creates standard logging fields for cache operations

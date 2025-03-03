@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
-	"github.com/himdhiman/dashboard-backend/libs/conflux/models"
+	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/auth"
 	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
 	interfaces "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/interface"
@@ -48,5 +48,5 @@ func (cs *ConfluxService) CreateApiClient(apiCode string, authStrategy interface
 		Timeout: time.Duration(5) * time.Second,
 	}
 
-	return client.NewConfluxAPIClient(*apiConfig, authStrategy, httpClient, cs.logger, *cs.cache), nil
+	return client.NewConfluxAPIClient(*apiConfig, tokenManager, httpClient, cs.logger, *cs.cache), nil
 }
