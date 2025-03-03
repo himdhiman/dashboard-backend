@@ -751,6 +751,8 @@ func isAllowedField(fieldPath string) bool {
 	}
 
 	var allowedProductFields = map[string]bool{
+		"SkuCode":         true,
+		"ImageURL":        true,
 		"Quantity":        true,
 		"CurrentRMBPrice": true,
 		"Status":          true,
@@ -768,19 +770,20 @@ func isAllowedField(fieldPath string) bool {
 }
 
 // setField navigates through obj based on the dot-separated fieldPath.
-// It supports nested fields and a special handling for Products where the second token is the SKU.
+// It supports nested fields and has special handling for "Products" where the second token is the SKU.
+// If the SKU is new, a new product entry is created, its SkuCode is set, and it is appended to the purchase order.
 func setField(obj interface{}, fieldPath string, value interface{}) error {
 	fields := strings.Split(fieldPath, ".")
 	// Start with the base object; we assume obj is a pointer.
 	v := reflect.ValueOf(obj).Elem()
 
-	// Process the fields one by one.
+	// Process the field tokens one by one.
 	for len(fields) > 0 {
 		field := fields[0]
 		fields = fields[1:]
 
 		if field == "Products" {
-			// We expect the next token to be the SKU.
+			// Next token must be the SKU.
 			if len(fields) < 2 {
 				return fmt.Errorf("invalid field path for Products: %s", fieldPath)
 			}
@@ -796,6 +799,7 @@ func setField(obj interface{}, fieldPath string, value interface{}) error {
 			}
 			var product reflect.Value
 			found := false
+			// Search for an existing product with the given SKU.
 			for i := 0; i < productsField.Len(); i++ {
 				candidate := productsField.Index(i)
 				if candidate.FieldByName("SkuCode").String() == sku {
@@ -805,12 +809,26 @@ func setField(obj interface{}, fieldPath string, value interface{}) error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("product with SKU %s not found", sku)
+				// Create a new product instance.
+				elemType := productsField.Type().Elem()
+				newProduct := reflect.New(elemType).Elem()
+				// Set the SkuCode on the new product.
+				skuField := newProduct.FieldByName("SkuCode")
+				if skuField.IsValid() && skuField.CanSet() && skuField.Kind() == reflect.String {
+					skuField.SetString(sku)
+				} else {
+					return fmt.Errorf("cannot set SkuCode on new product for SKU %s", sku)
+				}
+				// Append the new product to the Products slice.
+				newSlice := reflect.Append(productsField, newProduct)
+				productsField.Set(newSlice)
+				// Retrieve the newly added product.
+				product = newSlice.Index(newSlice.Len() - 1)
 			}
-			// Set v to the found product so that we can update its fields.
+			// Now continue updating within the found or newly created product.
 			v = product
 		} else {
-			// If there are no more tokens, this is the field to set.
+			// If no further tokens, then this field should be set.
 			if len(fields) == 0 {
 				f := v.FieldByName(field)
 				if !f.IsValid() {
@@ -820,7 +838,7 @@ func setField(obj interface{}, fieldPath string, value interface{}) error {
 					return fmt.Errorf("cannot set field %s", field)
 				}
 				val := reflect.ValueOf(value)
-				// Special handling if the field is a time.Time.
+				// Special handling for time.Time fields.
 				if f.Type() == reflect.TypeOf(time.Time{}) {
 					str, ok := value.(string)
 					if !ok {
@@ -837,12 +855,12 @@ func setField(obj interface{}, fieldPath string, value interface{}) error {
 				f.Set(val)
 				return nil
 			} else {
-				// Not the final field: descend into the next struct field.
+				// Not the final field: move deeper into the object.
 				v = v.FieldByName(field)
 				if !v.IsValid() {
 					return fmt.Errorf("no such field: %s in object", field)
 				}
-				// If the field is a pointer, ensure it's not nil.
+				// If v is a pointer, ensure it is non-nil.
 				if v.Kind() == reflect.Ptr {
 					if v.IsNil() {
 						v.Set(reflect.New(v.Type().Elem()))
