@@ -30,7 +30,7 @@ replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
 
-replace github.com/himdhiman/dashboard-backend/libs/conflux/cmd/conflux => ../../libs/conflux
+replace github.com/himdhiman/dashboard-backend/libs/conflux/cmd/conflux => ../../libs/conflux/cmd/conflux
 require (
 	cloud.google.com/go/auth v0.14.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
