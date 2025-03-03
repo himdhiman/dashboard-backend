@@ -2,3 +2,5 @@ implementation-doc.txt
 *.env
 **/docker-compose.yml
 **/creds.json
+**/main
+.DS_Store

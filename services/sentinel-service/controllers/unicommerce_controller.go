@@ -246,7 +246,7 @@ func (uc *UnicommerceController) UpdatePurchaseOrder(c *gin.Context) {
 	err := uc.Service.UpdatePurchaseOrder(ctx, poNumber, updates)
 	if err != nil {
 		uc.Logger.Error("Error updating purchase order", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update purchase order"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to update purchase order" + err.Error()})
 		return
 	}
 
