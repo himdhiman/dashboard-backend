@@ -28,7 +28,7 @@ import (
 type UnicommerceService struct {
 	ServiceCode             string
 	Logger                  logger.ILogger
-	TokenManager            *conflux
+	ApiClient               *conflux.ConfluxAPIClient
 	GoogleSheetService      *GoogleSheetsService
 	ProductsRepository      *repository.Repository[models.Product]
 	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]
