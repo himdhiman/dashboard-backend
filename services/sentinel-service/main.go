@@ -7,14 +7,13 @@ import (
 	"os"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
-	"github.com/himdhiman/dashboard-backend/libs/conflux/cmd/conflux"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/task"
+	"github.com/himdhiman/dashboard-backend/libs/conflux"
 	"github.com/joho/godotenv"
 
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/schedulers"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
@@ -121,7 +120,10 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
+	confluxService := conflux.NewConfluxService(constants.UNICOM_API_CODE, cache, logger, cryptoInstance, collection)
 	unicommerceApiClient := conflux.NewConfluxAPIClient(constants.UNICOM_API_CODE, tokenManager, http.DefaultClient, logger, cache)
+
+
 
 	unicommerceService := services.NewUnicommerceService(tokenManager, googleSheetsService, logger, collection, po_collection)
 

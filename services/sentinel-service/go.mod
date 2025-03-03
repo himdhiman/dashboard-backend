@@ -4,15 +4,15 @@ go 1.22.2
 
 require (
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/go-playground/validator/v10 v10.24.0
 	github.com/google/uuid v1.6.0
-	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20241218093311-5bed961e82ae
-	github.com/himdhiman/dashboard-backend/libs/crypto v0.0.0-20241220153702-23a782a7858d
-	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20241218052858-2f8483cbcb4a
-	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20241218093311-5bed961e82ae
+	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/crypto v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/scheduler v0.0.0-20241218052858-2f8483cbcb4a
 	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20241218093311-5bed961e82ae
-	github.com/himdhiman/dashboard-backend/libs/conflux/cmd/conflux v0.0.0-20250227105555-5bed961e82ae
+	github.com/himdhiman/dashboard-backend/libs/conflux v0.0.0-20250227135410-83fbb743dc5f
 	github.com/joho/godotenv v1.5.1
 	github.com/mitchellh/mapstructure v1.5.0
 	google.golang.org/api v0.219.0
@@ -30,7 +30,8 @@ replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
 
-replace github.com/himdhiman/dashboard-backend/libs/conflux/cmd/conflux => ../../libs/conflux/cmd/conflux
+replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
+
 require (
 	cloud.google.com/go/auth v0.14.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
@@ -48,7 +49,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.24.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -86,6 +86,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250124145028-65684f501c47 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.4 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
