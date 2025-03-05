@@ -17,6 +17,8 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/himdhiman/dashboard-backend/libs/cache"
+	conflux_client "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
+	conflux_models "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
@@ -28,13 +30,15 @@ import (
 type UnicommerceService struct {
 	ServiceCode             string
 	Logger                  logger.ILogger
-	ApiClient               *conflux.ConfluxAPIClient
+	Cache                   cache.Cacher
+	ApiClient               *conflux_client.ConfluxAPIClient
 	GoogleSheetService      *GoogleSheetsService
 	ProductsRepository      *repository.Repository[models.Product]
 	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]
 }
 
-func NewUnicommerceService(tokenManager *auth.TokenManager, sheetService *GoogleSheetsService, logger logger.ILogger, productsCollection *mongo_models.MongoCollection, po_collections *mongo_models.MongoCollection) *UnicommerceService {
+func NewUnicommerceService(apiClient *conflux_client.ConfluxAPIClient, sheetService *GoogleSheetsService, logger logger.ILogger, cache cache.Cacher,
+	productsCollection *mongo_models.MongoCollection, po_collections *mongo_models.MongoCollection) *UnicommerceService {
 
 	productsRepo := repository.Repository[models.Product]{Collection: productsCollection}
 
@@ -42,46 +46,13 @@ func NewUnicommerceService(tokenManager *auth.TokenManager, sheetService *Google
 
 	return &UnicommerceService{
 		ServiceCode:             constants.UNICOM_API_CODE,
-		TokenManager:            tokenManager,
+		ApiClient:               apiClient,
+		Cache:                   cache,
 		GoogleSheetService:      sheetService,
 		Logger:                  logger,
 		ProductsRepository:      &productsRepo,
 		PurchaseOrderRepository: &purchaseOrderRepo,
 	}
-}
-
-func (s *UnicommerceService) fetchConfig(ctx context.Context, apiCode string) (string, string, string, int, error) {
-	method, err := s.fetchFromCache(ctx, apiCode, constants.API_METHOD)
-	if err != nil {
-		s.Logger.Error("Error fetching method from cache", "error", err)
-		return "", "", "", 0, err
-	}
-
-	baseURL, err := s.fetchFromCache(ctx, "", constants.BASE_URL)
-	if err != nil {
-		s.Logger.Error("Error fetching base URL from cache", "error", err)
-		return "", "", "", 0, err
-	}
-
-	path, err := s.fetchFromCache(ctx, apiCode, constants.API_PATH)
-	if err != nil {
-		s.Logger.Error("Error fetching path from cache", "error", err)
-		return "", "", "", 0, err
-	}
-
-	timeoutStr, err := s.fetchFromCache(ctx, apiCode, constants.API_TIMEOUT)
-	if err != nil {
-		s.Logger.Error("Error fetching timeout from cache", "error", err)
-		return "", "", "", 0, err
-	}
-
-	timeout, cacheError := strconv.Atoi(timeoutStr)
-	if cacheError != nil {
-		s.Logger.Error("Error converting timeout to integer", "error", err)
-		return "", "", "", 0, err
-	}
-
-	return method, baseURL, path, timeout, nil
 }
 
 type ExportJobResponse struct {
@@ -113,13 +84,6 @@ type ExportJobStatusResponse struct {
 }
 
 func (s *UnicommerceService) CreateExportJob(ctx context.Context) (*ExportJobResponse, error) {
-	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_UNICOM_CREATE_JOB)
-	if err != nil {
-		return nil, err
-	}
-
-	fullURL := baseURL + path
-
 	payload := &ExportJobPayload{
 		ExportJobTypeName: "Item Master",
 		ExportColumns:     []string{"skuCode", "itemName", "imageUrl", "type", "skuType", "itemType_Primary_Vendor"},
@@ -134,39 +98,24 @@ func (s *UnicommerceService) CreateExportJob(ctx context.Context) (*ExportJobRes
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(string(payloadBytes)))
-	if err != nil {
-		s.Logger.Error("Error creating request for FetchTokens", "error", err)
-		return nil, err
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Facility":     "salty",
 	}
 
-	s.TokenManager.AuthenticateRequest(ctx, req)
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Facility", "salty")
-
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err)
-		return nil, err
-	}
-
-	defer resp.Body.Close()
+	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+		ApiCode: constants.API_CODE_UNICOM_CREATE_JOB,
+		Headers: headers,
+		Body:    strings.NewReader(string(payloadBytes)),
+	})
 
 	if resp.StatusCode != http.StatusOK {
 		s.Logger.Error("Error creating export job", "status", resp.StatusCode)
 		return nil, err
 	}
 
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		s.Logger.Error("Error reading response body", "error", err)
-		return nil, err
-	}
-
 	var exportJobResponse ExportJobResponse
-	if err := json.Unmarshal(respBody, &exportJobResponse); err != nil {
+	if err := json.Unmarshal(resp.Body, &exportJobResponse); err != nil {
 		s.Logger.Error("Error decoding response body", "error", err)
 		return nil, err
 	}
@@ -176,7 +125,7 @@ func (s *UnicommerceService) CreateExportJob(ctx context.Context) (*ExportJobRes
 		return nil, err
 	}
 
-	err = s.TokenManager.Cache.Set(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE, exportJobResponse.JobCode, 0)
+	err = s.Cache.Set(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE, exportJobResponse.JobCode, 0)
 	if err != nil {
 		s.Logger.Error("Error setting export job code in cache", "error", err)
 		return nil, err
@@ -187,7 +136,7 @@ func (s *UnicommerceService) CreateExportJob(ctx context.Context) (*ExportJobRes
 
 // check the job status and spin the task to read the data from csv and save it in mongo
 func (s *UnicommerceService) CheckExportJobStatus(ctx context.Context) error {
-	jobCode, err := s.fetchFromCache(ctx, constants.EXPORT_JOB_CODE, "")
+	jobCode, err := s.FetchFromCache(ctx, constants.EXPORT_JOB_CODE, "")
 	if err != nil {
 		s.Logger.Error("Error fetching export job code from cache", "error", err)
 		return err
@@ -284,7 +233,7 @@ func (s *UnicommerceService) CheckExportJobStatus(ctx context.Context) error {
 		}
 
 		// we can now remove the job id from cache
-		err = s.TokenManager.Cache.Delete(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE)
+		err = s.Cache.Delete(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE)
 		if err != nil {
 			s.Logger.Error("Error deleting export job code from cache", "error", err)
 			return err
@@ -294,13 +243,6 @@ func (s *UnicommerceService) CheckExportJobStatus(ctx context.Context) error {
 }
 
 func (s *UnicommerceService) getExportJobStatus(ctx context.Context, exportJobCode string) (*ExportJobStatusResponse, error) {
-	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_UNICOM_EXPORT_JOB_STATUS)
-	if err != nil {
-		return nil, err
-	}
-
-	fullURL := baseURL + path
-
 	payload := &ExportJobStatusPayload{
 		JobCode: exportJobCode,
 	}
@@ -311,39 +253,24 @@ func (s *UnicommerceService) getExportJobStatus(ctx context.Context, exportJobCo
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(string(payloadBytes)))
-	if err != nil {
-		s.Logger.Error("Error creating request for FetchTokens", "error", err)
-		return nil, err
+	headers := map[string]string{
+		"Content-Type": "application/json",
 	}
 
-	s.TokenManager.AuthenticateRequest(ctx, req)
-
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err)
-		return nil, err
-	}
-
-	defer resp.Body.Close()
+	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+		ApiCode: constants.API_CODE_UNICOM_EXPORT_JOB_STATUS,
+		Headers: headers,
+		Body:    strings.NewReader(string(payloadBytes)),
+	})
 
 	if resp.StatusCode != http.StatusOK {
 		s.Logger.Error("Error fetching export job status", "status", resp.StatusCode)
 		return nil, err
 	}
 
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		s.Logger.Error("Error reading response body", "error", err)
-		return nil, err
-	}
-
 	var exportJobStatusResponse ExportJobStatusResponse
 
-	if err := json.Unmarshal(respBody, &exportJobStatusResponse); err != nil {
+	if err := json.Unmarshal(resp.Body, &exportJobStatusResponse); err != nil {
 		s.Logger.Error("Error decoding response body", "error", err)
 		return nil, err
 	}
@@ -359,13 +286,6 @@ func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []st
 		return nil, errors.New("correlation ID not found in context")
 	}
 
-	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_GET_INVENTORY_SNAPSHOT)
-	if err != nil {
-		s.Logger.Error("Error fetching config", "error", err, "correlationID", correlationID)
-		return nil, err
-	}
-
-	fullURL := baseURL + path
 	payload := map[string]interface{}{
 		"itemTypeSKUs": skus,
 	}
@@ -376,37 +296,19 @@ func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []st
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		s.Logger.Error("Error creating request for inventory snapshot", "error", err, "correlationID", correlationID)
-		return nil, err
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Facility":     "Salty",
 	}
 
-	s.TokenManager.AuthenticateRequest(ctx, req)
-	s.Logger.Info("Authenticated request for inventory snapshot", "correlationID", correlationID)
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Facility", "Salty")
-	s.Logger.Info("Set headers for request", "correlationID", correlationID)
-
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err, "correlationID", correlationID)
-		return nil, err
-	}
-	s.Logger.Info("Made request to endpoint", "status", resp.StatusCode, "correlationID", correlationID)
-
-	defer resp.Body.Close()
+	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+		ApiCode: constants.API_CODE_GET_INVENTORY_SNAPSHOT,
+		Headers: headers,
+		Body:    strings.NewReader(string(payloadBytes)),
+	})
 
 	if resp.StatusCode != http.StatusOK {
 		s.Logger.Error("Error fetching inventory snapshot", "status", resp.StatusCode, "correlationID", correlationID)
-		return nil, err
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		s.Logger.Error("Error reading response body", "error", err, "correlationID", correlationID)
 		return nil, err
 	}
 
@@ -417,7 +319,7 @@ func (s *UnicommerceService) GetInventorySnapshot(ctx context.Context, skus []st
 		} `json:"inventorySnapshots"`
 	}
 
-	err = json.Unmarshal(respBody, &responseData)
+	err = json.Unmarshal(resp.Body, &responseData)
 	if err != nil {
 		s.Logger.Error("Error decoding response body", "error", err, "correlationID", correlationID)
 		return nil, err
@@ -493,102 +395,6 @@ func (s *UnicommerceService) UpdateInventoryFromGoogleSheet(ctx context.Context)
 	return nil
 }
 
-func (s *UnicommerceService) FetchProducts(ctx context.Context) error {
-	method, baseURL, path, timeout, err := s.fetchConfig(ctx, constants.API_CODE_UNICOM_FETCH_PRODUCTS)
-	if err != nil {
-		return err
-	}
-
-	fullURL := baseURL + path
-
-	payload := map[string]bool{
-		"getInventorySnapshot": false,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		s.Logger.Error("Error encoding payload for token request", "error", err)
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		s.Logger.Error("Error creating request for FetchTokens", "error", err)
-		return err
-	}
-
-	s.TokenManager.AuthenticateRequest(ctx, req)
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.Logger.Error("Error making request to endpoint", "error", err)
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	var responseData struct {
-		Products []struct {
-			SKUCode           string `json:"skuCode"`
-			Name              string `json:"name"`
-			ImageURL          string `json:"imageUrl"`
-			CustomFieldValues []struct {
-				FieldName  string `json:"fieldName"`
-				FieldValue string `json:"fieldValue"`
-			} `json:"customFieldValues"`
-		} `json:"elements"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&responseData)
-	if err != nil {
-		s.Logger.Error("Error decoding response body", "error", err)
-		return err
-	}
-
-	for _, p := range responseData.Products {
-		product := models.Product{
-			SKUCode:  p.SKUCode,
-			Name:     p.Name,
-			ImageURL: p.ImageURL,
-		}
-		for _, field := range p.CustomFieldValues {
-			if field.FieldName == "Primary_Vendor" {
-				product.PrimaryVendor = field.FieldValue
-				break
-			}
-		}
-
-		products, err := s.ProductsRepository.Find(ctx, map[string]interface{}{"skuCode": product.SKUCode, "primaryVendor": product.PrimaryVendor})
-
-		if err != nil {
-			s.Logger.Error("Error fetching products", "error", err)
-			return err
-		}
-
-		if len(products) == 0 {
-			product.CreatedAt = time.Now()
-			product.UpdatedAt = time.Now()
-			_, err = s.ProductsRepository.Create(ctx, &product)
-			if err != nil {
-				s.Logger.Error("Error creating product in DB", "error", err)
-				return err
-			}
-		} else {
-			// if the product already exists, we update the product
-			_, err = s.ProductsRepository.Update(ctx, map[string]interface{}{"name": product.Name, "imageUrl": product.ImageURL, "updatedAt": time.Now()}, product)
-			if err != nil {
-				s.Logger.Error("Error updating product", "error", err)
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
 func (s *UnicommerceService) GetProducts(ctx context.Context, skuCode string, pageNumber int, fieldsPerPage int) ([]*models.Product, int64, error) {
 	filter := map[string]interface{}{}
 	if skuCode != "" {
@@ -637,7 +443,7 @@ func (s *UnicommerceService) SearchProduct(ctx context.Context, skuCode string, 
 }
 
 // fetchFromCache retrieves the value from the cache
-func (s *UnicommerceService) fetchFromCache(ctx context.Context, apiCode, key string) (string, *cache.CacheError) {
+func (s *UnicommerceService) FetchFromCache(ctx context.Context, apiCode, key string) (string, *cache.CacheError) {
 	var cacheKey string
 	if apiCode == "" {
 		cacheKey = s.ServiceCode + key
@@ -645,7 +451,7 @@ func (s *UnicommerceService) fetchFromCache(ctx context.Context, apiCode, key st
 		cacheKey = s.ServiceCode + ":" + apiCode + key
 	}
 	var value string
-	err := s.TokenManager.Cache.Get(ctx, cacheKey, &value)
+	err := s.Cache.Get(ctx, cacheKey, &value)
 	if err != nil {
 		return "", cache.NewCacheMissError(cacheKey)
 	}

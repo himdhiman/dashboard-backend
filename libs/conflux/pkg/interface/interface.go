@@ -7,8 +7,8 @@ import (
 )
 
 type AuthenticationStrategy interface {
-	FetchTokens(ctx context.Context, apiName string) (*models.TokenResponse, error)
-	RefreshTokens(ctx context.Context, apiName string) (*models.TokenResponse, error)
+	FetchTokens(ctx context.Context) (*models.TokenResponse, error)
+	RefreshTokens(ctx context.Context) (*models.TokenResponse, error)
 }
 
 type APIClient interface {

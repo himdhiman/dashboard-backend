@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -14,19 +15,19 @@ import (
 type ConfluxAPIClient struct {
 	models.APIConfig
 	tokenManager *auth.TokenManager
-	httpClient   *http.Client
 	logger       logger.ILogger
 	cache        cache.Cacher
+	httpClient   *http.Client
 }
 
 // NewConfluxAPIClient creates a new instance of ConfluxAPIClient
-func NewConfluxAPIClient(config models.APIConfig, tokenManager *auth.TokenManager, httpClient *http.Client, logger logger.ILogger, cache cache.Cacher) *ConfluxAPIClient {
+func NewConfluxAPIClient(config models.APIConfig, tokenManager *auth.TokenManager, logger logger.ILogger, cache cache.Cacher, httpClient *http.Client) *ConfluxAPIClient {
 	return &ConfluxAPIClient{
 		APIConfig:    config,
 		tokenManager: tokenManager,
-		httpClient:   httpClient,
 		logger:       logger,
 		cache:        cache,
+		httpClient:   httpClient,
 	}
 }
 
@@ -37,10 +38,25 @@ func (c *ConfluxAPIClient) GetBaseURL() string {
 
 // DoRequest performs an HTTP request based on the given APIRequest.
 func (c *ConfluxAPIClient) DoRequest(ctx context.Context, req *models.APIRequest) (*models.APIResponse, error) {
-	c.logger.Info("Starting HTTP request", "method", req.Method, "url", req.URL)
+	// get the endpoint from the list of endpoints whose code matches with the api code
+	var endpoint models.Endpoints
+	for _, e := range c.APIConfig.Endpoints {
+		if e.Code == req.ApiCode {
+			endpoint = e
+			break
+		}
+	}
+
+	if endpoint.Code == "" {
+		return nil, fmt.Errorf("endpoint not found for api code: %s", req.ApiCode)
+	}
+
+	endpointURL := c.APIConfig.BaseURL + endpoint.Path
+
+	c.logger.Info("Starting HTTP request", "method", endpoint.Method, "url", endpoint.Code)
 
 	// Create the HTTP request using the provided method, URL, and body.
-	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.URL, req.Body)
+	httpReq, err := http.NewRequestWithContext(ctx, string(endpoint.Method), endpointURL, req.Body)
 	if err != nil {
 		c.logger.Error("Failed to create HTTP request", "error", err)
 		return nil, err
@@ -51,15 +67,7 @@ func (c *ConfluxAPIClient) DoRequest(ctx context.Context, req *models.APIRequest
 		httpReq.Header.Set(key, value)
 	}
 
-	var token models.TokenResponse
-
-	err = c.cache.GetMulti(ctx, []string{c.Code, "Token"}, &token)
-
-	// If a BearerToken is set, add it to the request.
-	if token.AccessToken != "" {
-		c.logger.Debug("Adding bearer token to request")
-		httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	}
+	c.tokenManager.AuthenticateRequest(ctx, httpReq)
 
 	// Execute the HTTP request.
 	resp, err := c.httpClient.Do(httpReq)
@@ -82,28 +90,4 @@ func (c *ConfluxAPIClient) DoRequest(ctx context.Context, req *models.APIRequest
 		StatusCode: resp.StatusCode,
 		Body:       bodyBytes,
 	}, nil
-}
-
-// FetchTokens delegates token fetching to the authentication strategy.
-func (c *ConfluxAPIClient) FetchTokens(ctx context.Context, apiName string) (*models.TokenResponse, error) {
-	c.logger.Info("Fetching tokens", "apiName", apiName)
-	tokens, err := c.tokenManager.AuthStrategy.FetchTokens(ctx, apiName)
-	if err != nil {
-		c.logger.Error("Failed to fetch tokens", "apiName", apiName, "error", err)
-		return nil, err
-	}
-	c.logger.Info("Successfully fetched tokens", "apiName", apiName)
-	return tokens, nil
-}
-
-// RefreshTokens delegates token refreshing to the authentication strategy.
-func (c *ConfluxAPIClient) RefreshTokens(ctx context.Context, apiName string) (*models.TokenResponse, error) {
-	c.logger.Info("Refreshing tokens", "apiName", apiName)
-	tokens, err := c.tokenManager.AuthStrategy.RefreshTokens(ctx, apiName)
-	if err != nil {
-		c.logger.Error("Failed to refresh tokens", "apiName", apiName, "error", err)
-		return nil, err
-	}
-	c.logger.Info("Successfully refreshed tokens", "apiName", apiName)
-	return tokens, nil
 }

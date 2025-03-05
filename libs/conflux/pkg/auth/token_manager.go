@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
-	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	interfaces "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/interface"
+	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
@@ -46,12 +46,12 @@ func (tm *TokenManager) AuthenticateRequest(ctx context.Context, r *http.Request
 
 	// Check if the access token is available in the cache and not expired
 	tokenExpiryTime := tokenData.CreatedAt.Add(time.Second * time.Duration(tokenData.ExpiresIn))
-    if time.Now().Before(tokenExpiryTime) {
-        tm.Logger.Info("Using valid access token from cache")
-        r.Header.Set("Authorization", "Bearer " + tokenData.AccessToken)
-        tm.Logger.Debug("Successfully set Authorization header with access token")
-        return nil
-    }
+	if time.Now().Before(tokenExpiryTime) {
+		tm.Logger.Info("Using valid access token from cache")
+		r.Header.Set("Authorization", "Bearer "+tokenData.AccessToken)
+		tm.Logger.Debug("Successfully set Authorization header with access token")
+		return nil
+	}
 
 	// Access token is not available, try using the refresh token
 	if tokenData.RefreshToken != "" {
@@ -71,9 +71,15 @@ func (tm *TokenManager) AuthenticateRequest(ctx context.Context, r *http.Request
 
 func (tm *TokenManager) fetchAndAuthenticate(ctx context.Context, r *http.Request) error {
 	tm.Logger.Info("Fetching new tokens for API: ", tm.ApiName)
-	tokens, err := tm.AuthStrategy.FetchTokens(ctx, tm.ApiName)
+	tokens, err := tm.AuthStrategy.FetchTokens(ctx)
 	if err != nil {
 		tm.Logger.Error("Failed to fetch new tokens: ", err)
+		return err
+	}
+
+	err = tm.SaveTokenToCache(ctx, tokens)
+	if err != nil {
+		tm.Logger.Error("Failed to save token to cache: ", err)
 		return err
 	}
 
@@ -111,13 +117,36 @@ func (tm *TokenManager) GetTokenFromCache(ctx context.Context, apiName string) (
 
 func (tm *TokenManager) refreshAndAuthenticate(ctx context.Context, r *http.Request) error {
 	tm.Logger.Info("Attempting to refresh tokens for API: ", tm.ApiName)
-	tokens, err := tm.AuthStrategy.RefreshTokens(ctx, tm.ApiName)
+	tokens, err := tm.AuthStrategy.RefreshTokens(ctx)
 	if err != nil {
 		tm.Logger.Error("Failed to refresh tokens: ", err)
+		return err
+	}
+
+	err = tm.SaveTokenToCache(ctx, tokens)
+	if err != nil {
+		tm.Logger.Error("Failed to save token to cache: ", err)
 		return err
 	}
 
 	r.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 	tm.Logger.Debug("Successfully set Authorization header with refreshed access token")
 	return nil
+}
+
+func (tm *TokenManager) SaveTokenToCache(ctx context.Context, token *models.TokenResponse) error {
+
+	tokenString, err := json.Marshal(token)
+	if err != nil {
+		tm.Logger.Error("Failed to marshal token: ", err)
+		return err
+	}
+
+	encryptedToken, err := tm.Crypto.Encrypt(string(tokenString))
+	if err != nil {
+		tm.Logger.Error("Failed to encrypt token: ", err)
+		return err
+	}
+
+	return tm.Cache.Set(ctx, tm.ApiName+":Token", encryptedToken)
 }

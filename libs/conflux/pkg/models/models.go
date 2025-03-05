@@ -38,9 +38,9 @@ type AuthConfig struct {
 }
 
 type Credentials struct {
-	Username     string `json:"username" validate:"required"`
-	ClientID     string `json:"client_id" validate:"required"`
-	ClientSecret string `json:"client_secret" validate:"required"`
+	Username     string `json:"username" bson:"username" validate:"required"`
+	ClientID     string `json:"client_id" bson:"client_id" validate:"required"`
+	ClientSecret string `json:"client_secret" bson:"client_secret" validate:"required"`
 }
 
 // Endpoints is the model for the endpoints configuration
@@ -68,8 +68,7 @@ type TokenMetadata struct {
 }
 
 type APIRequest struct {
-	Method  string            `json:"method" validate:"required,oneof=GET POST PUT DELETE PATCH"`
-	URL     string            `json:"url" validate:"required,url"`
+	ApiCode string            `json:"api_code" validate:"required"`
 	Headers map[string]string `json:"headers"`
 	Body    io.Reader         `json:"body"`
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 )
 
-type OAuth2Strategy struct {
+type BearerAuthStrategy struct {
 	ClientID     string
 	ClientSecret string
 	AuthURL      string
@@ -22,8 +22,8 @@ type OAuth2Strategy struct {
 }
 
 // NewOAuth2Strategy initializes a new instance of OAuth2Strategy.
-func NewOAuth2Strategy(clientID, clientSecret, authURL, tokenURL string, logger logger.ILogger) *OAuth2Strategy {
-	return &OAuth2Strategy{
+func NewOAuth2Strategy(clientID, clientSecret, authURL, tokenURL string, logger logger.ILogger) *BearerAuthStrategy {
+	return &BearerAuthStrategy{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		AuthURL:      authURL,
@@ -33,7 +33,7 @@ func NewOAuth2Strategy(clientID, clientSecret, authURL, tokenURL string, logger 
 }
 
 // FetchTokens fetches new access and refresh tokens using client credentials.
-func (o *OAuth2Strategy) FetchTokens(ctx context.Context) (*models.TokenMetadata, error) {
+func (o *BearerAuthStrategy) FetchTokens(ctx context.Context) (*models.TokenMetadata, error) {
 	payload := map[string]string{
 		"grant_type":    "client_credentials",
 		"client_id":     o.ClientID,
@@ -83,7 +83,7 @@ func (o *OAuth2Strategy) FetchTokens(ctx context.Context) (*models.TokenMetadata
 }
 
 // RefreshTokens refreshes access and refresh tokens using the provided refresh token.
-func (o *OAuth2Strategy) RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenMetadata, error) {
+func (o *BearerAuthStrategy) RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenMetadata, error) {
 	payload := map[string]string{
 		"grant_type":    "refresh_token",
 		"refresh_token": refreshToken,

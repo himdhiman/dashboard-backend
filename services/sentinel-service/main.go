@@ -7,13 +7,14 @@ import (
 	"os"
 
 	"github.com/himdhiman/dashboard-backend/libs/cache"
+	conflux "github.com/himdhiman/dashboard-backend/libs/conflux/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/task"
-	"github.com/himdhiman/dashboard-backend/libs/conflux"
 	"github.com/joho/godotenv"
 
+	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/schedulers"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
@@ -120,12 +121,18 @@ func main() {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	confluxService := conflux.NewConfluxService(constants.UNICOM_API_CODE, cache, logger, cryptoInstance, collection)
-	unicommerceApiClient := conflux.NewConfluxAPIClient(constants.UNICOM_API_CODE, tokenManager, http.DefaultClient, logger, cache)
+	collectionName = "sentinel_apis"
+	api_collection, err := mongoClient.GetCollection(context.Background(), collectionName)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+	}
+	confluxService := conflux.NewConfluxService(constants.UNICOM_API_CODE, &cache, logger, cryptoInstance, api_collection)
+	unicommerceApiClient, err := confluxService.CreateApiClient(constants.UNICOM_API_CODE, conflux.AuthStrategyBasic)
+	if err != nil {
+		logger.Fatal("Failed to create Unicommerce API client", "error", err)
+	}
 
-
-
-	unicommerceService := services.NewUnicommerceService(tokenManager, googleSheetsService, logger, collection, po_collection)
+	unicommerceService := services.NewUnicommerceService(unicommerceApiClient, googleSheetsService, logger, cache, collection, po_collection)
 
 	taskCollectionName := "sentinel_tasks"
 	collection, err = mongoClient.GetCollection(context.Background(), taskCollectionName)
@@ -145,8 +152,8 @@ func main() {
 	exportJobScheduler.Start(ctx)
 
 	// start invetory snapshot scheduler
-	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(collection, unicommerceService, logger)
-	inventorySnapShotScheduler.Start(ctx)
+	// inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(collection, unicommerceService, logger)
+	// inventorySnapShotScheduler.Start(ctx)
 
 	// Set up router
 	router := routes.SetupRouter(logger, unicommerceService, taskManager)

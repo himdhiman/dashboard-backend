@@ -79,33 +79,32 @@ func (uc *UnicommerceController) GetProducts(c *gin.Context) {
 }
 
 // FetchProducts fetches products from the Unicommerce API, runs the task in the background and returns the task ID
-func (uc *UnicommerceController) FetchProducts(c *gin.Context) {
-	fetchProductsTask := func(params map[string]interface{}) (interface{}, error) {
-		ctx := context.Background()
-		err := uc.Service.FetchProducts(ctx)
-		if err != nil {
-			uc.Logger.Error("Error fetching products", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-			return nil, err
-		}
-		return nil, nil
-	}
+// func (uc *UnicommerceController) FetchProducts(c *gin.Context) {
+// 	fetchProductsTask := func(params map[string]interface{}) (interface{}, error) {
+// 		ctx := context.Background()
+// 		err := uc.Service.FetchProducts(ctx)
+// 		if err != nil {
+// 			uc.Logger.Error("Error fetching products", "error", err)
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+// 			return nil, err
+// 		}
+// 		return nil, nil
+// 	}
 
-	taskID, err := uc.TaskManager.RunTask("FetchProducts", nil, fetchProductsTask)
-	if err != nil {
-		uc.Logger.Error("Error running fetch products task", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run fetch products task"})
-		return
-	}
+// 	taskID, err := uc.TaskManager.RunTask("FetchProducts", nil, fetchProductsTask)
+// 	if err != nil {
+// 		uc.Logger.Error("Error running fetch products task", "error", err)
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run fetch products task"})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
-}
+// 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+// }
 
 // CreateExportJob creates an export job in the Unicommerce API, runs the task in the background and returns the task ID
 func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 	ctx := context.Background()
-	var jobCode string
-	cacheErr := uc.Service.TokenManager.Cache.Get(ctx, constants.GetUnicomExportJobCode(), &jobCode)
+	jobCode, cacheErr := uc.Service.FetchFromCache(ctx, constants.EXPORT_JOB_CODE, "")
 	if cacheErr == nil && jobCode != "" {
 		c.JSON(http.StatusOK, gin.H{"message": "A job is already running"})
 		return

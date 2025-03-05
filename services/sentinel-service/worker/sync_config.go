@@ -31,8 +31,6 @@ func configSync(ctx context.Context, mongoRepo repository.IRepository[models.API
 	}
 
 	for _, config := range configs {
-		logger.Info("Config", "config", config)
-
 		apiCode := config.Code
 
 		baseURLKey := constants.GetBaseURLKey(apiCode)
