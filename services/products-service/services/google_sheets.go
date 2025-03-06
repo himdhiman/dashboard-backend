@@ -6,6 +6,7 @@ import (
 
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
@@ -13,11 +14,11 @@ import (
 type GoogleSheetsService struct {
 	SpreadsheetID string
 	SheetName     string
-	Credentials   string
+	Credentials   *google.Credentials
 	Logger        logger.ILogger
 }
 
-func NewGoogleSheetsService(spreadsheetID, sheetName, credentials string, logger logger.ILogger) *GoogleSheetsService {
+func NewGoogleSheetsService(spreadsheetID, sheetName string, credentials *google.Credentials, logger logger.ILogger) *GoogleSheetsService {
 	return &GoogleSheetsService{
 		SpreadsheetID: spreadsheetID,
 		SheetName:     sheetName,
@@ -33,7 +34,7 @@ func (s *GoogleSheetsService) UpdateGoogleSheet(ctx context.Context, data []map[
 	}
 	s.Logger.Infof("CorrelationID: %s - Starting UpdateGoogleSheet", correlationID)
 
-	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(s.Credentials))
+	srv, err := sheets.NewService(ctx, option.WithCredentials(s.Credentials))
 	if err != nil {
 		s.Logger.Errorf("CorrelationID: %s - Error creating Google Sheets service: %v", correlationID, err)
 		return err
@@ -82,7 +83,7 @@ func (s *GoogleSheetsService) FetchGoogleSheetData(ctx context.Context) ([]map[s
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Infof("CorrelationID: %s - Starting FetchGoogleSheetData", correlationID)
 
-	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(s.Credentials))
+	srv, err := sheets.NewService(ctx, option.WithCredentials(s.Credentials))
 	if err != nil {
 		s.Logger.Errorf("CorrelationID: %s - Error creating Google Sheets service: %v", correlationID, err)
 		return nil, err

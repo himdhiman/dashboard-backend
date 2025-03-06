@@ -5,16 +5,6 @@ type ContextKey string
 const CorrelationID ContextKey = "correlationID"
 
 const (
-	UNICOM_API_CODE = "UNICOM_SALTY"
-
-	// API Codes
-	API_CODE_UNICOM_FETCH_PRODUCTS    = "FETCH_PRODUCTS"
-	API_CODE_UNICOM_CREATE_JOB        = "CREATE_EXPORT_JOB"
-	API_CODE_UNICOM_EXPORT_JOB_STATUS = "EXPORT_JOB_STATUS"
-	API_CODE_GET_INVENTORY_SNAPSHOT   = "GET_INVENTORY_SNAPSHOT"
-)
-
-const (
 	BASE_URL         = ":baseURL"
 	AUTH_TYPE        = ":Auth:Type"
 	AUTH_PATH        = ":Auth:Path"
@@ -24,10 +14,6 @@ const (
 	API_METHOD     = ":Method"
 	API_RATE_LIMIT = ":RateLimit"
 	API_TIMEOUT    = ":Timeout"
-)
-
-const (
-	EXPORT_JOB_CODE = "export_job_code"
 )
 
 func GetBaseURLKey(apiCode string) string {
@@ -60,8 +46,4 @@ func GetApiRateLimitKey(apiCode, endpointCode string) string {
 
 func GetApiTimeoutKey(apiCode, endpointCode string) string {
 	return apiCode + ":" + endpointCode + API_TIMEOUT
-}
-
-func GetUnicomExportJobCode() string {
-	return UNICOM_API_CODE + ":" + EXPORT_JOB_CODE
 }

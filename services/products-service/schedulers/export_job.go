@@ -7,16 +7,16 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
+	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
 type ExportJobScheduler struct {
 	scheduler *scheduler.Scheduler
-	service   *services.UnicommerceService
+	service   *services.UnicommerceProductsService
 	logger    logger.ILogger
 }
 
-func NewExportJobScheduler(collection *models.MongoCollection, service *services.UnicommerceService, logger logger.ILogger) *ExportJobScheduler {
+func NewExportJobScheduler(collection *models.MongoCollection, service *services.UnicommerceProductsService, logger logger.ILogger) *ExportJobScheduler {
 	config := scheduler.SchedulerConfig{
 		RetentionPeriod: 24 * time.Hour,
 		Collection:      collection,

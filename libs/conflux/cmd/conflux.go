@@ -14,7 +14,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
+	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 )
 
@@ -27,26 +27,32 @@ const (
 
 type ConfluxService struct {
 	serviceName         string
-	ApiConfigCollection repository.Repository[models.APIConfig]
+	ApiConfigRepository repository.Repository[models.APIConfig]
 	cache               *cache.Cacher
 	crypto              *crypto.Crypto
 	logger              logger.ILogger
 }
 
-func NewConfluxService(serviceName string, cache *cache.Cacher, logger logger.ILogger, crypto *crypto.Crypto, apiConfigCollection *mongo_models.MongoCollection) *ConfluxService {
-	apiConfigRepository := repository.Repository[models.APIConfig]{Collection: apiConfigCollection}
+func NewConfluxService(serviceName string, cache *cache.Cacher, logger logger.ILogger, crypto *crypto.Crypto, mongoClient mongo.IMongoClient) *ConfluxService {
+	collection, err := mongoClient.GetCollection(context.Background(), "conflux_apis")
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+	}
+
+	apiConfigRepository := repository.Repository[models.APIConfig]{Collection: collection}
+
 	return &ConfluxService{
 		serviceName:         serviceName,
 		cache:               cache,
 		logger:              logger,
 		crypto:              crypto,
-		ApiConfigCollection: apiConfigRepository,
+		ApiConfigRepository: apiConfigRepository,
 	}
 }
 
 // CreateApiClient creates and returns an API client based on the provided API code.
 func (cs *ConfluxService) CreateApiClient(apiCode string, authStrategyType AuthStrategy) (*client.ConfluxAPIClient, error) {
-	apiConfig, err := cs.ApiConfigCollection.FindOne(context.Background(), map[string]interface{}{"code": apiCode})
+	apiConfig, err := cs.ApiConfigRepository.FindOne(context.Background(), map[string]interface{}{"code": apiCode})
 	if err != nil {
 		return nil, err
 	}

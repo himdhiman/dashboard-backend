@@ -8,17 +8,17 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
+	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
 type InventorySnapShotScheduler struct {
 	scheduler *scheduler.Scheduler
-	service   *services.UnicommerceService
+	service   *services.ProductsService
 	logger    logger.ILogger
 }
 
-func NewInventorySnapShotScheduler(collection *models.MongoCollection, service *services.UnicommerceService, logger logger.ILogger) *InventorySnapShotScheduler {
+func NewInventorySnapShotScheduler(collection *models.MongoCollection, service *services.ProductsService, logger logger.ILogger) *InventorySnapShotScheduler {
 	config := scheduler.SchedulerConfig{
 		RetentionPeriod: 24 * time.Hour,
 		Collection:      collection,
