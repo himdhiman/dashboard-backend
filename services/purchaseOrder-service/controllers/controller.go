@@ -7,27 +7,26 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/dto"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/mappers"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/models"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
+	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
+	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/mappers"
+	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
+	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/services"
 	"github.com/mitchellh/mapstructure"
 )
 
-type UnicommerceController struct {
+type PurchaseOrderController struct {
 	Logger  logger.ILogger
-	Service *services.UnicommerceService
+	Service *services.PurchaseOrderService
 }
 
-func NewUnicommerceController(logger logger.ILogger, service *services.UnicommerceService) *UnicommerceController {
-	return &UnicommerceController{
+func NewUnicommerceController(logger logger.ILogger, service *services.PurchaseOrderService) *PurchaseOrderController {
+	return &PurchaseOrderController{
 		Logger:  logger,
 		Service: service,
 	}
 }
 
-func (uc *UnicommerceController) CreatePurchaseOrder(c *gin.Context) {
+func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 	ctx := c.Request.Context()
 	correlationID := c.GetHeader("X-Correlation-ID")
 	if correlationID == "" {
@@ -76,7 +75,7 @@ func (uc *UnicommerceController) CreatePurchaseOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.PONumber})
 }
 
-func (uc *UnicommerceController) UpdatePurchaseOrder(c *gin.Context) {
+func (poc *PurchaseOrderController) UpdatePurchaseOrder(c *gin.Context) {
 	ctx := c.Request.Context()
 	correlationID := c.GetHeader("X-Correlation-ID")
 	if correlationID == "" {
@@ -108,7 +107,7 @@ func (uc *UnicommerceController) UpdatePurchaseOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Purchase order updated successfully"})
 }
 
-func (uc *UnicommerceController) GetPurchaseOrders(c *gin.Context) {
+func (poc *PurchaseOrderController) GetPurchaseOrders(c *gin.Context) {
 	ctx := c.Request.Context()
 	correlationID := c.GetHeader("X-Correlation-ID")
 	if correlationID == "" {
