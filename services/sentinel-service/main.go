@@ -14,11 +14,12 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/task"
 	"golang.org/x/oauth2/google"
 
+	products "github.com/himdhiman/dashboard-backend/services/products-service/cmd"
 	products_config "github.com/himdhiman/dashboard-backend/services/products-service/config"
+	purchaseOrder "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/cmd"
+	purchaseOrder_config "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/config"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/config"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
-	products "github.com/himdhiman/dashboard-backend/services/products-service/cmd"
 )
 
 func main() {
@@ -64,7 +65,6 @@ func main() {
 
 	cryptoInstance := crypto.NewCrypto(projectConfig.SecretKey, projectConfig.InitializationVector)
 
-
 	// Initialize Conflux service
 	confluxService := conflux.NewConfluxService("Sentinel Service", &cache, logger, cryptoInstance, mongoClient)
 
@@ -80,8 +80,7 @@ func main() {
 	taskManager := task.NewTaskManager(collection, logger)
 
 	// Set up router
-	router := routes.SetupRouter(logger,taskManager)
-
+	router := routes.SetupRouter(logger, taskManager)
 
 	productsServiceConfig := products_config.ProductsServiceConfig{
 		SpreadsheetID: projectConfig.SpreadsheetID,
@@ -106,7 +105,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to initialize products service", "error", err)
 	}
-
 
 	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{}
 	err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient)
