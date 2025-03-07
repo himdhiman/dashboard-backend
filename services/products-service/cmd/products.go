@@ -18,17 +18,19 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 )
 
-func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) *gin.Engine {
+func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) error {
 
 	collection, err := mongoClient.GetCollection(context.Background(), "unicom_products")
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
+		return err
 	}
 	productsRepository := repository.Repository[models.Product]{Collection: collection}
 
 	unicommerceApiClient, err := confluxService.CreateApiClient(constants.UNICOM_API_CODE, conflux.AuthStrategyBasic)
 	if err != nil {
 		logger.Fatal("Failed to create Unicommerce API client", "error", err)
+		return err
 	}
 
 	googleSheetService := services.NewGoogleSheetsService(config.SpreadsheetID, config.SheetName, config.Credentials, logger)
@@ -52,7 +54,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(schedulerCollection, productsService, logger)
 	inventorySnapShotScheduler.Start(ctx)
 
-	router = routes.AddProductsRoutes(router, logger, &productsServices)
+	routes.AddProductsRoutes(router, logger, &productsServices)
 
-	return router
+	return nil
 }

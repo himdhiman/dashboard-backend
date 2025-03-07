@@ -5,7 +5,6 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/task"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/controllers"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
 )
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -24,7 +23,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-func SetupRouter(logger logger.ILogger, unicommerceService *services.UnicommerceService, taskManager *task.TaskManager) *gin.Engine {
+func SetupRouter(logger logger.ILogger, taskManager *task.TaskManager) *gin.Engine {
 	router := gin.Default()
 
 	// Add CORS middleware
@@ -34,12 +33,6 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 
 	router.GET("/health", controller.HealthCheck)
 	router.GET("/tasks/:task_id", controller.GetTaskStatus)
-
-	unicommerceController := controllers.NewUnicommerceController(logger, unicommerceService, taskManager)
-
-	router.GET("/purchase-order", unicommerceController.GetPurchaseOrders)
-	router.POST("/purchase-order", unicommerceController.CreatePurchaseOrder)
-	router.PUT("/purchase-orders", unicommerceController.UpdatePurchaseOrder)
 
 	return router
 }

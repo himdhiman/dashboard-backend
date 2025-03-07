@@ -64,18 +64,11 @@ func main() {
 
 	cryptoInstance := crypto.NewCrypto(projectConfig.SecretKey, projectConfig.InitializationVector)
 
-	// Initialize collections
-	collectionName := "unicom_purchase_orders"
-	po_collection, err := mongoClient.GetCollection(context.Background(), collectionName)
-	if err != nil {
-		logger.Fatal("Failed to connect to Collection", "error", err)
-	}
 
 	// Initialize Conflux service
 	confluxService := conflux.NewConfluxService("Sentinel Service", &cache, logger, cryptoInstance, mongoClient)
 
 	// Initialize Unicommerce service
-	unicommerceService := services.NewUnicommerceService(logger, cache, po_collection)
 
 	// Initialize task manager
 	taskCollectionName := "sentinel_tasks"
@@ -87,7 +80,7 @@ func main() {
 	taskManager := task.NewTaskManager(collection, logger)
 
 	// Set up router
-	router := routes.SetupRouter(logger, unicommerceService, taskManager)
+	router := routes.SetupRouter(logger,taskManager)
 
 
 	productsServiceConfig := products_config.ProductsServiceConfig{
@@ -109,7 +102,17 @@ func main() {
 
 	productsServiceConfig.Credentials = creds
 
-	router = products.InitializeProductsService(router, ctx, &productsServiceConfig, logger, cache, confluxService, mongoClient)
+	err = products.InitializeProductsService(router, ctx, &productsServiceConfig, logger, cache, confluxService, mongoClient)
+	if err != nil {
+		logger.Fatal("Failed to initialize products service", "error", err)
+	}
+
+
+	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{}
+	err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient)
+	if err != nil {
+		logger.Fatal("Failed to initialize purchase order service", "error", err)
+	}
 
 	// Start the server
 	srv := &http.Server{

@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/himdhiman/dashboard-backend/libs/constants v0.0.0-00010101000000-000000000000
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/mitchellh/mapstructure v1.5.0
@@ -52,3 +53,5 @@ require (
 replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
 
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
+
+replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants

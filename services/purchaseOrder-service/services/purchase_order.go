@@ -22,13 +22,11 @@ type PurchaseOrderService struct {
 }
 
 func NewPurchaseOrderService(logger logger.ILogger,
-	po_collections *mongo_models.MongoCollection) *PurchaseOrderService {
-
-	purchaseOrderRepo := repository.Repository[models.PurchaseOrder]{Collection: po_collections}
+	purchaseOrderRepository *repository.Repository[models.PurchaseOrder]) *PurchaseOrderService {
 
 	return &PurchaseOrderService{
 		Logger:                  logger,
-		PurchaseOrderRepository: &purchaseOrderRepo,
+		PurchaseOrderRepository: purchaseOrderRepository,
 	}
 }
 
