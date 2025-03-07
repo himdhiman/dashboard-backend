@@ -4,18 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/himdhiman/dashboard-backend/libs/cache"
-	"github.com/himdhiman/dashboard-backend/libs/mongo"
+	"github.com/joho/godotenv"
 )
-
-type Config struct {
-	MongoDB                    *mongo.MongoClient
-	RedisCache                 *cache.CacheClient
-	RateLimitterDatabaseName   string
-	RateLimitterCollectionName string
-	RateLimit                  int // in requests per minute
-	WorkerSyncInterval         int // in seconds
-}
 
 type ProjectConfig struct {
 	// Database Configurations
@@ -40,8 +30,12 @@ type ProjectConfig struct {
 func LoadConfig() (*ProjectConfig, error) {
 	// Check if we're in production
 	appEnv := os.Getenv("APP_ENV")
-	if appEnv == "" {
-		appEnv = "development"
+
+	// Load from .env file in development
+	if appEnv == "development" {
+		if err := godotenv.Load(); err != nil {
+			return nil, fmt.Errorf("error loading .env file: %w", err)
+		}
 	}
 
 	config := &ProjectConfig{
@@ -86,6 +80,8 @@ func (c *ProjectConfig) validate() error {
 	for name, value := range required {
 		if value == "" {
 			return fmt.Errorf("required configuration %s is not set", name)
+		} else {
+			fmt.Printf("Configuration %s: %s\n", name, value)
 		}
 	}
 

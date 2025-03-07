@@ -7,10 +7,15 @@ import (
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
-func AddProductsRoutes(router *gin.Engine, logger logger.ILogger, unicommerceProductsService *services.UnicommerceProductsService, productsService *services.ProductsService) *gin.Engine {
+type ProductsServices struct {
+	UnicommerceProductsService *services.UnicommerceProductsService
+	ProductsService *services.ProductsService
+}
 
-	unicommerceController := controllers.NewUnicommerceController(logger, unicommerceProductsService)
-	productsController := controllers.NewProductsController(logger, productsService)
+func AddProductsRoutes(router *gin.Engine, logger logger.ILogger, productsServices *ProductsServices) *gin.Engine {
+
+	unicommerceController := controllers.NewUnicommerceController(logger, productsServices.UnicommerceProductsService)
+	productsController := controllers.NewProductsController(logger, productsServices.ProductsService)
 
 	router.GET("/unicommerce/products", productsController.GetProducts)
 	router.POST("/search-products", productsController.SearchProduct)

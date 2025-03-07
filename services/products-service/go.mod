@@ -6,11 +6,13 @@ toolchain go1.23.7
 
 require (
 	github.com/gin-gonic/gin v1.10.0
+	github.com/google/uuid v1.6.0
 	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/conflux v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/scheduler v0.0.0-20250227135410-83fbb743dc5f
+	golang.org/x/oauth2 v0.26.0
 	google.golang.org/api v0.223.0
 )
 
@@ -36,7 +38,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/himdhiman/dashboard-backend/libs/crypto v0.0.0-20250227135410-83fbb743dc5f // indirect
@@ -66,7 +67,6 @@ require (
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect

@@ -12,15 +12,14 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/task"
-	"github.com/joho/godotenv"
+	"golang.org/x/oauth2/google"
 
+	products_config "github.com/himdhiman/dashboard-backend/services/products-service/config"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/config"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/worker"
+	products "github.com/himdhiman/dashboard-backend/services/products-service/cmd"
 )
-
 
 func main() {
 	ctx := context.Background()
@@ -63,28 +62,24 @@ func main() {
 		return
 	}
 
-	worker.StartConfigSync(collection, cache, logger)
-
 	cryptoInstance := crypto.NewCrypto(projectConfig.SecretKey, projectConfig.InitializationVector)
 
 	// Initialize collections
-	collectionName = "unicom_purchase_orders"
+	collectionName := "unicom_purchase_orders"
 	po_collection, err := mongoClient.GetCollection(context.Background(), collectionName)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-
 	// Initialize Conflux service
-	confluxService := conflux.NewConfluxService(constants.UNICOM_API_CODE, &cache, logger, cryptoInstance, mongoClient)
-	
+	confluxService := conflux.NewConfluxService("Sentinel Service", &cache, logger, cryptoInstance, mongoClient)
 
 	// Initialize Unicommerce service
-	unicommerceService := services.NewUnicommerceService(unicommerceApiClient, logger, cache, collection, po_collection)
+	unicommerceService := services.NewUnicommerceService(logger, cache, po_collection)
 
 	// Initialize task manager
 	taskCollectionName := "sentinel_tasks"
-	collection, err = mongoClient.GetCollection(context.Background(), taskCollectionName)
+	collection, err := mongoClient.GetCollection(context.Background(), taskCollectionName)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
@@ -93,6 +88,28 @@ func main() {
 
 	// Set up router
 	router := routes.SetupRouter(logger, unicommerceService, taskManager)
+
+
+	productsServiceConfig := products_config.ProductsServiceConfig{
+		SpreadsheetID: projectConfig.SpreadsheetID,
+		SheetName:     projectConfig.SheetName,
+		Credentials:   nil,
+	}
+
+	// Load Google credentials from file
+	credBytes, err := os.ReadFile(projectConfig.GoogleCredentialsPath)
+	if err != nil {
+		logger.Fatal("Failed to read credentials file", "error", err)
+	}
+
+	creds, err := google.CredentialsFromJSON(ctx, credBytes, "https://www.googleapis.com/auth/spreadsheets")
+	if err != nil {
+		logger.Fatal("Failed to parse credentials", "error", err)
+	}
+
+	productsServiceConfig.Credentials = creds
+
+	router = products.InitializeProductsService(router, ctx, &productsServiceConfig, logger, cache, confluxService, mongoClient)
 
 	// Start the server
 	srv := &http.Server{

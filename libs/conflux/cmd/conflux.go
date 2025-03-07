@@ -80,7 +80,7 @@ func (cs *ConfluxService) CreateApiClient(apiCode string, authStrategyType AuthS
 	tokenManager := auth.NewTokenManager(*cs.cache, cs.logger, cs.crypto, apiCode, authStrategy)
 
 	httpClient := &http.Client{
-		Timeout: time.Duration(5) * time.Second,
+		Timeout: time.Duration(10) * time.Second,
 	}
 
 	return client.NewConfluxAPIClient(*apiConfig, tokenManager, cs.logger, *cs.cache, httpClient), nil

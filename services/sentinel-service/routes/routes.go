@@ -6,7 +6,6 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/task"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/controllers"
 	"github.com/himdhiman/dashboard-backend/services/sentinel-service/services"
-	productServiceRoutes "github.com/himdhiman/dashboard-backend/services/products-service/routes"
 )
 
 func CORSMiddleware() gin.HandlerFunc {
@@ -37,8 +36,6 @@ func SetupRouter(logger logger.ILogger, unicommerceService *services.Unicommerce
 	router.GET("/tasks/:task_id", controller.GetTaskStatus)
 
 	unicommerceController := controllers.NewUnicommerceController(logger, unicommerceService, taskManager)
-
-	
 
 	router.GET("/purchase-order", unicommerceController.GetPurchaseOrders)
 	router.POST("/purchase-order", unicommerceController.CreatePurchaseOrder)

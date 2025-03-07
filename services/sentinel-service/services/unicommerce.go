@@ -10,8 +10,6 @@ import (
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
-	"github.com/himdhiman/dashboard-backend/libs/cache"
-	conflux_client "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
@@ -21,19 +19,15 @@ import (
 
 type UnicommerceService struct {
 	Logger                  logger.ILogger
-	Cache                   cache.Cacher
-	ApiClient               *conflux_client.ConfluxAPIClient
 	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]
 }
 
-func NewUnicommerceService(apiClient *conflux_client.ConfluxAPIClient, logger logger.ILogger, cache cache.Cacher,
+func NewUnicommerceService(logger logger.ILogger,
 	po_collections *mongo_models.MongoCollection) *UnicommerceService {
 
 	purchaseOrderRepo := repository.Repository[models.PurchaseOrder]{Collection: po_collections}
 
 	return &UnicommerceService{
-		ApiClient:               apiClient,
-		Cache:                   cache,
 		Logger:                  logger,
 		PurchaseOrderRepository: &purchaseOrderRepo,
 	}

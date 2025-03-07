@@ -1,21 +1,6 @@
 package models
 
-import (
-	"time"
-)
-
-type AuthenticationType string
-type AuthenticationMethodType string
-
-const (
-	BASIC_AUTH AuthenticationType = "BasicAuth"
-	OAUTH      AuthenticationType = "OAuth2"
-)
-
-const (
-	GET  AuthenticationMethodType = "GET"
-	POST AuthenticationMethodType = "POST"
-)
+import "time"
 
 type PurchaseOrderProducts struct {
 	SkuCode          string  `json:"skuCode" bson:"skuCode" validate:"required"`

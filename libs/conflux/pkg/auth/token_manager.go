@@ -24,7 +24,7 @@ type TokenManager struct {
 }
 
 func NewTokenManager(cache cache.Cacher, logger logger.ILogger, crypto *crypto.Crypto, apiName string, strategy interfaces.AuthenticationStrategy) *TokenManager {
-	logger.Info("Initializing new TokenManager for API: ", apiName)
+	logger.Info("Initializing new TokenManager for API: ", "api_name", apiName)
 	return &TokenManager{
 		Cache:        cache,
 		Logger:       logger,
@@ -35,7 +35,7 @@ func NewTokenManager(cache cache.Cacher, logger logger.ILogger, crypto *crypto.C
 }
 
 func (tm *TokenManager) AuthenticateRequest(ctx context.Context, r *http.Request) error {
-	tm.Logger.Info("Starting authentication request for API: ", tm.ApiName)
+	tm.Logger.Info("Starting authentication request for API: ", "api_name", tm.ApiName)
 
 	// Get tokens from the cache
 	tokenData, err := tm.GetTokenFromCache(ctx, tm.ApiName)
@@ -70,7 +70,7 @@ func (tm *TokenManager) AuthenticateRequest(ctx context.Context, r *http.Request
 }
 
 func (tm *TokenManager) fetchAndAuthenticate(ctx context.Context, r *http.Request) error {
-	tm.Logger.Info("Fetching new tokens for API: ", tm.ApiName)
+	tm.Logger.Info("Fetching new tokens for API: ", "api_name", tm.ApiName)
 	tokens, err := tm.AuthStrategy.FetchTokens(ctx)
 	if err != nil {
 		tm.Logger.Error("Failed to fetch new tokens: ", err)
@@ -116,7 +116,7 @@ func (tm *TokenManager) GetTokenFromCache(ctx context.Context, apiName string) (
 }
 
 func (tm *TokenManager) refreshAndAuthenticate(ctx context.Context, r *http.Request) error {
-	tm.Logger.Info("Attempting to refresh tokens for API: ", tm.ApiName)
+	tm.Logger.Info("Attempting to refresh tokens for API: ", "api_name", tm.ApiName)
 	tokens, err := tm.AuthStrategy.RefreshTokens(ctx)
 	if err != nil {
 		tm.Logger.Error("Failed to refresh tokens: ", err)
