@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/task"
-	"github.com/himdhiman/dashboard-backend/services/sentinel-service/controllers"
+	"github.com/himdhiman/dashboard-backend/services/dashboard-service/pkg/controllers"
 )
 
 func CORSMiddleware() gin.HandlerFunc {

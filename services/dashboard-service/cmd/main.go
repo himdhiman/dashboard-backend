@@ -2,76 +2,65 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"os"
 
-	"github.com/himdhiman/dashboard-backend/libs/cache"
 	conflux "github.com/himdhiman/dashboard-backend/libs/conflux/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/task"
-	"golang.org/x/oauth2/google"
 
+	"github.com/himdhiman/dashboard-backend/services/dashboard-service/pkg/config"
+	"github.com/himdhiman/dashboard-backend/services/dashboard-service/pkg/routes"
+	"github.com/himdhiman/dashboard-backend/services/dashboard-service/pkg/utils"
 	products "github.com/himdhiman/dashboard-backend/services/products-service/cmd"
 	products_config "github.com/himdhiman/dashboard-backend/services/products-service/config"
 	purchaseOrder "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/cmd"
 	purchaseOrder_config "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/config"
-	"github.com/himdhiman/dashboard-backend/services/dashboard-service/config"
-	"github.com/himdhiman/dashboard-backend/services/dashboard-service/routes"
+)
+
+const (
+	appName = "Dashboard-Service"
+	port    = ":8080"
+	envFile = "./configs/dev.env"
 )
 
 func main() {
 	ctx := context.Background()
-	logger := logger.New(logger.DefaultConfig("Sentinel-Service")).WithContext(ctx)
+	logger := logger.New(logger.DefaultConfig(appName)).WithContext(ctx)
 
 	// Load configuration
-	projectConfig, err := config.LoadConfig()
+	projectConfig, err := config.LoadConfig(envFile)
 	if err != nil {
 		logger.Fatal("Failed to load configuration", "error", err)
 		return
 	}
 
 	// Initialize MongoDB connection
-	mongoConnectString := fmt.Sprintf("%s:%s@%s", projectConfig.MongoUser, projectConfig.MongoPassword, projectConfig.MongoHost)
-	mongoConfig := mongo.NewMongoConfig(fmt.Sprintf("mongodb://%s:27017", mongoConnectString), "Dashboard")
-	mongoClient, err := mongo.NewMongoClient(mongoConfig, logger)
+	mongoClient, err := utils.GetMongoClient(ctx, projectConfig, logger)
 	if err != nil {
-		logger.Error("Failed to connect to MongoDB", "error", err)
+		logger.Fatal("Failed to connect to MongoDB", "error", err)
 		return
 	}
 
 	defer mongoClient.Disconnect(ctx)
 
 	// Create cache configuration
-	cacheConfig := &cache.CacheConfig{
-		Prefix:  "sentinel",
-		Timeout: 0,
-	}
-
-	cache, err := cache.NewMemoryCache(cacheConfig, logger)
+	cache, err := utils.GetMemoryCache(ctx, projectConfig, logger)
 	if err != nil {
-		logger.Error("Failed to connect to Redis", "error", err)
+		logger.Fatal("Failed to connect to Memory Cache", "error", err)
 		return
 	}
 
-	ctx = context.Background()
-	err = cache.Ping(ctx)
-	if err != nil {
-		logger.Error("Failed to connect to Redis", "error", err)
-		return
-	}
+	defer cache.Close()
 
+	// Initialize crypto instance
 	cryptoInstance := crypto.NewCrypto(projectConfig.SecretKey, projectConfig.InitializationVector)
 
 	// Initialize Conflux service
 	confluxService := conflux.NewConfluxService("Sentinel Service", &cache, logger, cryptoInstance, mongoClient)
 
-	// Initialize Unicommerce service
-
 	// Initialize task manager
-	taskCollectionName := "sentinel_tasks"
+	taskCollectionName := "dashboard_tasks"
 	collection, err := mongoClient.GetCollection(context.Background(), taskCollectionName)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
@@ -89,14 +78,10 @@ func main() {
 	}
 
 	// Load Google credentials from file
-	credBytes, err := os.ReadFile(projectConfig.GoogleCredentialsPath)
+	creds, err := utils.LoadGoogleCreds(ctx, projectConfig.GoogleCredentialsPath, logger)
 	if err != nil {
-		logger.Fatal("Failed to read credentials file", "error", err)
-	}
-
-	creds, err := google.CredentialsFromJSON(ctx, credBytes, "https://www.googleapis.com/auth/spreadsheets")
-	if err != nil {
-		logger.Fatal("Failed to parse credentials", "error", err)
+		logger.Fatal("Failed to load Google credentials", "error", err)
+		return
 	}
 
 	productsServiceConfig.Credentials = creds
@@ -114,7 +99,7 @@ func main() {
 
 	// Start the server
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    port,
 		Handler: router,
 	}
 

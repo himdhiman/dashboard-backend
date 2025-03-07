@@ -27,13 +27,13 @@ type ProjectConfig struct {
 }
 
 // LoadConfig loads configuration from environment variables or .env file
-func LoadConfig() (*ProjectConfig, error) {
+func LoadConfig(envFilePath string) (*ProjectConfig, error) {
 	// Check if we're in production
 	appEnv := os.Getenv("APP_ENV")
 
 	// Load from .env file in development
 	if appEnv == "development" {
-		if err := godotenv.Load(); err != nil {
+		if err := godotenv.Load(envFilePath); err != nil {
 			return nil, fmt.Errorf("error loading .env file: %w", err)
 		}
 	}
