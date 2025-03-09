@@ -11,7 +11,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	conflux_client "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
 	conflux_models "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
-	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"

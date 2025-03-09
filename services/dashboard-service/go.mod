@@ -99,3 +99,5 @@ replace github.com/himdhiman/dashboard-backend/libs/crypto => ../../libs/crypto
 replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
 
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
+
+replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants

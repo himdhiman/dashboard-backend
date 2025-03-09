@@ -7,7 +7,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/services/products-service/config"
-	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/models"
 	"github.com/himdhiman/dashboard-backend/services/products-service/routes"
 	"github.com/himdhiman/dashboard-backend/services/products-service/schedulers"
@@ -33,7 +33,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 	}
 	productsRepository := repository.Repository[models.Product]{Collection: collection}
 
-	unicommerceApiClient, err := confluxService.CreateApiClient(constants.UNICOM_API_CODE, conflux.AuthStrategyBasic)
+	unicommerceApiClient, err := confluxService.CreateApiClient(products_constants.UNICOM_API_CODE, conflux.AuthStrategyBasic)
 	if err != nil {
 		logger.Fatal("Failed to create Unicommerce API client", "error", err)
 		return nil, err

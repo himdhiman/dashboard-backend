@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator"
-	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"

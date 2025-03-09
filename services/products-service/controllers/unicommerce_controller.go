@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"

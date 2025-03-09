@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"

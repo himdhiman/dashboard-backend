@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/mappers"

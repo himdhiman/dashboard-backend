@@ -15,7 +15,7 @@ import (
 	conflux_models "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
-	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/models"
 )
 
@@ -29,7 +29,7 @@ type UnicommerceProductsService struct {
 
 func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product]) *UnicommerceProductsService {
 	return &UnicommerceProductsService{
-		ServiceCode:        constants.SERVICE_CODE,
+		ServiceCode:        products_constants.SERVICE_CODE,
 		Logger:             logger,
 		Cache:              cache,
 		ApiClient:          apiClient,
@@ -86,7 +86,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 	}
 
 	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
-		ApiCode: constants.API_CODE_UNICOM_CREATE_JOB,
+		ApiCode: products_constants.API_CODE_UNICOM_CREATE_JOB,
 		Headers: headers,
 		Body:    strings.NewReader(string(payloadBytes)),
 	})
@@ -107,7 +107,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 		return nil, err
 	}
 
-	err = s.Cache.Set(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE, exportJobResponse.JobCode, 0)
+	err = s.Cache.Set(ctx, s.ServiceCode+":"+products_constants.EXPORT_JOB_CODE, exportJobResponse.JobCode, 0)
 	if err != nil {
 		s.Logger.Error("Error setting export job code in cache", "error", err)
 		return nil, err
@@ -118,7 +118,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 
 // check the job status and spin the task to read the data from csv and save it in mongo
 func (s *UnicommerceProductsService) CheckExportJobStatus(ctx context.Context) error {
-	jobCode, err := s.FetchFromCache(ctx, constants.EXPORT_JOB_CODE, "")
+	jobCode, err := s.FetchFromCache(ctx, products_constants.EXPORT_JOB_CODE, "")
 	if err != nil {
 		s.Logger.Error("Error fetching export job code from cache", "error", err)
 		return err
@@ -215,7 +215,7 @@ func (s *UnicommerceProductsService) CheckExportJobStatus(ctx context.Context) e
 		}
 
 		// we can now remove the job id from cache
-		err = s.Cache.Delete(ctx, s.ServiceCode+":"+constants.EXPORT_JOB_CODE)
+		err = s.Cache.Delete(ctx, s.ServiceCode+":"+products_constants.EXPORT_JOB_CODE)
 		if err != nil {
 			s.Logger.Error("Error deleting export job code from cache", "error", err)
 			return err
@@ -240,7 +240,7 @@ func (s *UnicommerceProductsService) getExportJobStatus(ctx context.Context, exp
 	}
 
 	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
-		ApiCode: constants.API_CODE_UNICOM_EXPORT_JOB_STATUS,
+		ApiCode: products_constants.API_CODE_UNICOM_EXPORT_JOB_STATUS,
 		Headers: headers,
 		Body:    strings.NewReader(string(payloadBytes)),
 	})
