@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
-	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
@@ -24,8 +25,14 @@ func NewUnicommerceController(logger logger.ILogger, service *services.Unicommer
 
 // CreateExportJob creates an export job in the Unicommerce API, runs the task in the background and returns the task ID
 func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
-	ctx := context.Background()
-	jobCode, cacheErr := uc.Service.FetchFromCache(ctx, constants.EXPORT_JOB_CODE, "")
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	jobCode, cacheErr := uc.Service.FetchFromCache(ctx, products_constants.EXPORT_JOB_CODE, "")
 	if cacheErr == nil && jobCode != "" {
 		c.JSON(http.StatusOK, gin.H{"message": "A job is already running"})
 		return

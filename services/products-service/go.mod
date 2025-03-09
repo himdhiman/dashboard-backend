@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/conflux v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/constants v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/scheduler v0.0.0-20250227135410-83fbb743dc5f
@@ -89,3 +90,5 @@ replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
 
 replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
+
+replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants

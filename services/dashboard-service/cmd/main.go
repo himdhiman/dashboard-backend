@@ -86,13 +86,13 @@ func main() {
 
 	productsServiceConfig.Credentials = creds
 
-	err = products.InitializeProductsService(router, ctx, &productsServiceConfig, logger, cache, confluxService, mongoClient)
+	productsServices, err := products.InitializeProductsService(router, ctx, &productsServiceConfig, logger, cache, confluxService, mongoClient)
 	if err != nil {
 		logger.Fatal("Failed to initialize products service", "error", err)
 	}
 
 	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{}
-	err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient)
+	_, err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient, *productsServices.ProductsService)
 	if err != nil {
 		logger.Fatal("Failed to initialize purchase order service", "error", err)
 	}

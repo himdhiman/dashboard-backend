@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
-	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 

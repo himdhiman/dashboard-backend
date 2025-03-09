@@ -90,8 +90,6 @@ replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
 
 replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 
-replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants
-
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
 
 replace github.com/himdhiman/dashboard-backend/libs/cache => ../../libs/cache

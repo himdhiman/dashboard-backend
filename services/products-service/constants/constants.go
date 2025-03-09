@@ -1,9 +1,5 @@
 package constants
 
-type ContextKey string
-
-const CorrelationID ContextKey = "correlationID"
-
 const (
 	SERVICE_CODE = "PRODUCTS_SERVICE"
 

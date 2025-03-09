@@ -14,6 +14,7 @@ func IsAllowedField(fieldPath string) bool {
 		"TotalAmount":           true,
 		"TentativeDispatchDate": true,
 		"Remarks":               true,
+		"Deposits":              true,
 	}
 
 	var allowedProductFields = map[string]bool{

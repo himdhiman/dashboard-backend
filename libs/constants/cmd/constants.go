@@ -40,6 +40,9 @@ const (
 
 // Error message constants
 const (
+	// ErrMissingCorrelationID indicates missing correlation ID
+	ErrMissingCorrelationID = "Missing correlation ID"
+
 	// ErrInvalidRequest indicates invalid request parameters
 	ErrInvalidRequest = "Invalid request parameters"
 

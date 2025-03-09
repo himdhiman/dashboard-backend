@@ -8,7 +8,7 @@ WORKDIR /app
 COPY main .
 
 # Copy the Google Sheets credentials file to the container
-COPY creds.json .
+COPY /cmd/configs/creds.json .
 
 # Expose the application port
 EXPOSE 8080

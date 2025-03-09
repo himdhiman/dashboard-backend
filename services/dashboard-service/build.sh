@@ -13,7 +13,7 @@ IMAGE_NAME="himanshudhiman/dashboard-backend"
 echo "Building for version v${VERSION}..."
 
 # Build for Linux
-GOOS=linux GOARCH=amd64 go build -o main
+GOOS=linux GOARCH=amd64 go build -o main ./cmd/main.go
 if [ $? -ne 0 ]; then
     echo "Go build failed"
     exit 1

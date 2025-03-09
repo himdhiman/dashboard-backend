@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/services/products-service/models"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
@@ -30,7 +32,16 @@ type GetProductsResponse struct {
 }
 
 func (uc *ProductsController) GetProducts(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 	// Parse query parameters
+
+	uc.Logger.Info("Getting products", "correlationID", correlationID)
 
 	pageNumberStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
@@ -47,10 +58,9 @@ func (uc *ProductsController) GetProducts(c *gin.Context) {
 	}
 
 	/// Fetch products
-	ctx := c.Request.Context()
 	productsPtr, total, err := uc.Service.GetProducts(ctx, skuCode, pageNumber, limit)
 	if err != nil {
-		uc.Logger.Error("Error fetching products", "error", err)
+		uc.Logger.Error("Error fetching products", "correlationID", correlationID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
 	}
@@ -72,6 +82,12 @@ func (uc *ProductsController) GetProducts(c *gin.Context) {
 
 func (uc *ProductsController) SearchProduct(c *gin.Context) {
 	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 
 	var request struct {
 		SKUCode string   `json:"skuCode"`

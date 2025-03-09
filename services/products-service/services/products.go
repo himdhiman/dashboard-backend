@@ -11,10 +11,11 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	conflux_client "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
 	conflux_models "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
+	constants "github.com/himdhiman/dashboard-backend/libs/constants/cmd"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
-	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/models"
 )
 
@@ -33,13 +34,34 @@ func NewProductsService(apiClient *conflux_client.ConfluxAPIClient, sheetService
 	productsRepo := repository.Repository[models.Product]{Collection: productsCollection}
 
 	return &ProductsService{
-		ServiceCode:        constants.UNICOM_API_CODE,
+		ServiceCode:        products_constants.UNICOM_API_CODE,
 		ApiClient:          apiClient,
 		Cache:              cache,
 		GoogleSheetService: sheetService,
 		Logger:             logger,
 		ProductsRepository: &productsRepo,
 	}
+}
+
+func (s *ProductsService) IsValidVendor(ctx context.Context, vendorID string) (bool, error) {
+	if vendorID == "" {
+		return false, errors.New("Vendor ID cannot be empty")
+	}
+
+	filter := map[string]interface{}{
+		"primaryVendor": vendorID,
+	}
+	productsCount, err := s.ProductsRepository.Count(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching products", "error", err)
+		return false, err
+	}
+
+	if productsCount == 0 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (s *ProductsService) UpdateInventoryFromGoogleSheet(ctx context.Context) error {
@@ -127,7 +149,7 @@ func (s *ProductsService) GetInventorySnapshot(ctx context.Context, skus []strin
 	}
 
 	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
-		ApiCode: constants.API_CODE_GET_INVENTORY_SNAPSHOT,
+		ApiCode: products_constants.API_CODE_GET_INVENTORY_SNAPSHOT,
 		Headers: headers,
 		Body:    strings.NewReader(string(payloadBytes)),
 	})
