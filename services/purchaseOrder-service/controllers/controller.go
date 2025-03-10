@@ -178,7 +178,7 @@ func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
 	}
 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 
-	poNumber := c.Param("poNumber")
+	poNumber := c.Query("poNumber")
 	if poNumber == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
 		return
@@ -203,13 +203,13 @@ func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
 	}
 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 
-	poNumber := c.Param("poNumber")
+	poNumber := c.Query("poNumber")
 	if poNumber == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
 		return
 	}
 
-	skuCode := c.Param("skuCode")
+	skuCode := c.Query("skuCode")
 	if skuCode == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing SKU code"})
 		return
