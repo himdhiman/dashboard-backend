@@ -26,6 +26,7 @@ func IsAllowedField(fieldPath string) bool {
 		"Status":          true,
 		"Remarks":         true,
 		"ShippingMark":    true,
+		"OrderDate":       true,
 	}
 
 	fields := strings.Split(fieldPath, ".")

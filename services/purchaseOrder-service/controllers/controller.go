@@ -67,6 +67,11 @@ func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 	poc.Logger.Info("Creating purchase order in service", "correlationID", correlationID)
 	err = poc.Service.CreatePurchaseOrder(ctx, &purchaseOrder)
 	if err != nil {
+		if err.Error() == constants.ErrInvalidVendor {
+			poc.Logger.Error("Error creating purchase order", "error", err, "correlationID", correlationID)
+			c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrInvalidVendor})
+			return
+		}
 		poc.Logger.Error("Error creating purchase order", "error", err, "correlationID", correlationID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
 		return

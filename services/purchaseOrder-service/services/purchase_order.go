@@ -81,12 +81,12 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 	date := time.Now().Format("20060102")
 	purchaseOrder.PONumber = fmt.Sprintf("PO/%s/%s/%02d", vendor, date, nextOrderNumber)
 
-	// Set the order date
+	// Set the order date and initial status
 	purchaseOrder.OrderDate = time.Now()
 	purchaseOrder.UpdatedAt = time.Now()
+	purchaseOrder.ShippingStatus = "pending"
 
 	// validate the purchase order use validator v10
-
 	validator := validator.New()
 	err = validator.Struct(purchaseOrder)
 	if err != nil {
@@ -133,7 +133,6 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	purchaseOrder.UpdatedAt = time.Now()
 
 	// validate the purchase order use validator v10
-
 	validator := validator.New()
 	err = validator.Struct(purchaseOrder)
 	if err != nil {
@@ -141,9 +140,17 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 		return err
 	}
 
+	// Update order status based on product statuses
 	err = s.updatePurchaseOrderStatus(ctx, purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error updating purchase order status", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// Update shipping status based on shipping marks
+	err = s.updateShippingStatus(ctx, purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error updating shipping status", "correlationID", correlationID, "error", err)
 		return err
 	}
 
@@ -189,6 +196,40 @@ func (s *PurchaseOrderService) updatePurchaseOrderStatus(ctx context.Context, pu
 	// Update the PO status if it has changed
 	if purchaseOrder.OrderStatus != newStatus {
 		purchaseOrder.OrderStatus = newStatus
+	}
+
+	return nil
+}
+
+func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Updating purchase order shipping status", "correlationID", correlationID)
+
+	// Initialize counters for shipping mark status
+	totalSkus := len(purchaseOrder.Products)
+	skusWithShippingMark := 0
+
+	// Count SKUs with shipping marks
+	for _, product := range purchaseOrder.Products {
+		if product.ShippingMark != "" {
+			skusWithShippingMark++
+		}
+	}
+
+	// Determine shipping status based on shipping marks
+	var newStatus string
+	if skusWithShippingMark == 0 {
+		newStatus = "pending"
+	} else if skusWithShippingMark == totalSkus {
+		newStatus = "complete"
+	} else {
+		newStatus = "partly_shipped"
+	}
+
+	// Update the shipping status if it has changed
+	if purchaseOrder.ShippingStatus != newStatus {
+		purchaseOrder.ShippingStatus = newStatus
+		purchaseOrder.UpdatedAt = time.Now()
 	}
 
 	return nil

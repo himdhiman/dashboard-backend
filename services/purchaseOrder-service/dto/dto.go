@@ -19,4 +19,5 @@ type PurchaseOrderProductDTO struct {
 	Status          string  `json:"status" binding:"required"`
 	Remarks         string  `json:"remarks" binding:"omitempty"`
 	ShippingMark    string  `json:"shippingMark" binding:"omitempty"`
+	OrderDate       string  `json:"orderDate" binding:"omitempty"`
 }
