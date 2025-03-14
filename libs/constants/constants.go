@@ -28,4 +28,5 @@ const (
 	ErrUnauthorized         = "unauthorized"
 	ErrForbidden            = "forbidden"
 	ErrNotFound             = "not found"
+	ErrInvalidVendor        = "invalid vendor"
 )
