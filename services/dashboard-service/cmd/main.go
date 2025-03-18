@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	conflux "github.com/himdhiman/dashboard-backend/libs/conflux/cmd"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/crypto"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/task"
@@ -57,11 +58,10 @@ func main() {
 	cryptoInstance := crypto.NewCrypto(projectConfig.SecretKey, projectConfig.InitializationVector)
 
 	// Initialize Conflux service
-	confluxService := conflux.NewConfluxService("Sentinel Service", &cache, logger, cryptoInstance, mongoClient)
+	confluxService := conflux.NewConfluxService("Dashboard Service", &cache, logger, cryptoInstance, mongoClient)
 
 	// Initialize task manager
-	taskCollectionName := "dashboard_tasks"
-	collection, err := mongoClient.GetCollection(context.Background(), taskCollectionName)
+	collection, err := mongoClient.GetCollection(context.Background(), constants.TaskCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}

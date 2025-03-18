@@ -16,6 +16,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 )
 
 type AuthStrategy string
@@ -34,7 +35,7 @@ type ConfluxService struct {
 }
 
 func NewConfluxService(serviceName string, cache *cache.Cacher, logger logger.ILogger, crypto *crypto.Crypto, mongoClient mongo.IMongoClient) *ConfluxService {
-	collection, err := mongoClient.GetCollection(context.Background(), "conflux_apis")
+	collection, err := mongoClient.GetCollection(context.Background(), constants.ConfluxApisCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}

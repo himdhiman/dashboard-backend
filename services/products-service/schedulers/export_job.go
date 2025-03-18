@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
@@ -39,8 +41,22 @@ func (e *ExportJobScheduler) Start(ctx context.Context) error {
 		IsRecurring: true,
 	}
 
+	e.logger.Info("Configuring scheduled job", "jobName", config.Name, "cronExpr", config.CronExpr)
+
 	err := e.scheduler.Schedule(ctx, config, func(ctx context.Context, params map[string]interface{}) error {
-		return e.service.CheckExportJobStatus(ctx)
+		correlationID := uuid.New().String()
+		e.logger.Info("Starting scheduled job", "correlationID", correlationID)
+		ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+		e.logger.Info("Calling CheckExportJobStatus", "correlationID", correlationID)
+		err := e.service.CheckExportJobStatus(ctx)
+		if err != nil {
+			e.logger.Error("CheckExportJobStatus failed", "correlationID", correlationID, "error", err)
+			return err
+		}
+
+		e.logger.Info("CheckExportJobStatus succeeded", "correlationID", correlationID)
+		return nil
 	})
 
 	if err != nil {

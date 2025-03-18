@@ -30,3 +30,13 @@ const (
 	ErrNotFound             = "not found"
 	ErrInvalidVendor        = "invalid vendor"
 )
+
+// Collection Names
+const (
+	ConfluxApisCollection = "ConfluxApis"
+	UnicommerceProductsCollection = "UnicommerceProducts"
+	ProductsSchedulersCollection = "ProductSchedulers"
+	TaskCollection = "DashboardTasks"
+	PurchaseOrderCollection = "PurchaseOrders"
+
+)

@@ -4,6 +4,7 @@ go 1.22.2
 
 require (
 	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/constants v0.0.0-00010101000000-000000000000
 	github.com/himdhiman/dashboard-backend/libs/crypto v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
@@ -34,3 +35,5 @@ replace github.com/himdhiman/dashboard-backend/libs/cache => ../../libs/cache
 replace github.com/himdhiman/dashboard-backend/libs/crypto => ../../libs/crypto
 
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
+
+replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants

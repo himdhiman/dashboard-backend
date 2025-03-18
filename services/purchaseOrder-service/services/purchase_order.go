@@ -132,14 +132,6 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	// Update the updatedAt field
 	purchaseOrder.UpdatedAt = time.Now()
 
-	// validate the purchase order use validator v10
-	validator := validator.New()
-	err = validator.Struct(purchaseOrder)
-	if err != nil {
-		s.Logger.Error("Error validating purchase order", "correlationID", correlationID, "error", err)
-		return err
-	}
-
 	// Update order status based on product statuses
 	err = s.updatePurchaseOrderStatus(ctx, purchaseOrder)
 	if err != nil {
@@ -151,6 +143,14 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	err = s.updateShippingStatus(ctx, purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error updating shipping status", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// validate the purchase order use validator v10
+	validator := validator.New()
+	err = validator.Struct(purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error validating purchase order", "correlationID", correlationID, "error", err)
 		return err
 	}
 

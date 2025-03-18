@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/services/products-service/config"
@@ -26,7 +27,7 @@ type ProductsServices struct {
 
 func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) (*ProductsServices, error) {
 
-	collection, err := mongoClient.GetCollection(context.Background(), "unicom_products")
+	collection, err := mongoClient.GetCollection(context.Background(), constants.UnicommerceProductsCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
@@ -48,7 +49,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 		ProductsService:            productsService,
 	}
 
-	schedulerCollection, err := mongoClient.GetCollection(context.Background(), "product_schedulers")
+	schedulerCollection, err := mongoClient.GetCollection(context.Background(), constants.ProductsSchedulersCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}

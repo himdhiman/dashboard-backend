@@ -9,7 +9,7 @@ import (
 
 type ProductsServices struct {
 	UnicommerceProductsService *services.UnicommerceProductsService
-	ProductsService *services.ProductsService
+	ProductsService            *services.ProductsService
 }
 
 func AddProductsRoutes(router *gin.Engine, logger logger.ILogger, productsServices *ProductsServices) *gin.Engine {

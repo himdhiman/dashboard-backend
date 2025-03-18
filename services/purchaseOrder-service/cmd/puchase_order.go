@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
@@ -20,7 +21,7 @@ type PurchaseOrderServices struct {
 
 func InitializePurchaseOrderService(router *gin.Engine, ctx context.Context, config *config.PurchaseOrderServiceConfig, logger logger.ILogger, mongoClient mongo.IMongoClient, productsService product_services.ProductsService) (*PurchaseOrderServices, error) {
 
-	collection, err := mongoClient.GetCollection(context.Background(), "PurchaseOrders")
+	collection, err := mongoClient.GetCollection(context.Background(), constants.PurchaseOrderCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
