@@ -64,6 +64,32 @@ func (s *ProductsService) IsValidVendor(ctx context.Context, vendorID string) (b
 	return true, nil
 }
 
+func (s *ProductsService) GetProductIDBySKUVendor(ctx context.Context, skuCode string, vendorID string) (string, error) {
+	if skuCode == "" {
+		return "", errors.New("SKU code cannot be empty")
+	}
+
+	if vendorID == "" {
+		return "", errors.New("Vendor ID cannot be empty")
+	}
+
+	filter := map[string]interface{}{
+		"skuCode":       skuCode,
+		"primaryVendor": vendorID,
+	}
+	products, err := s.ProductsRepository.Find(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching products", "error", err)
+		return "", err
+	}
+
+	if len(products) == 0 {
+		return "", nil
+	}
+
+	return products[0].ID.Hex(), nil
+}
+
 func (s *ProductsService) UpdateInventoryFromGoogleSheet(ctx context.Context) error {
 	correlationID, ok := ctx.Value(constants.CorrelationID).(string)
 	if !ok {

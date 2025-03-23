@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
+	"github.com/himdhiman/dashboard-backend/libs/mappers"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	product_services "github.com/himdhiman/dashboard-backend/services/products-service/services"
@@ -21,15 +22,25 @@ type PurchaseOrderServices struct {
 
 func InitializePurchaseOrderService(router *gin.Engine, ctx context.Context, config *config.PurchaseOrderServiceConfig, logger logger.ILogger, mongoClient mongo.IMongoClient, productsService product_services.ProductsService) (*PurchaseOrderServices, error) {
 
-	collection, err := mongoClient.GetCollection(context.Background(), constants.PurchaseOrderCollection)
+	purchaseOrderCollection, err := mongoClient.GetCollection(context.Background(), constants.PurchaseOrderCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
 	}
 
-	purchaseOrderRepo := repository.Repository[models.PurchaseOrder]{Collection: collection}
+	purchaseOrderRepo := repository.Repository[models.PurchaseOrder]{Collection: purchaseOrderCollection}
 
-	purchaseOrderService := services.NewPurchaseOrderService(logger, &purchaseOrderRepo, productsService)
+	purchaseOrderProductsCollection, err := mongoClient.GetCollection(context.Background(), constants.PurchaseOrderProductCollection)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+		return nil, err
+	}
+
+	purchaseOrderProductsRepo := repository.Repository[models.PurchaseOrderProducts]{Collection: purchaseOrderProductsCollection}
+
+	mapper := mappers.NewMapper()
+
+	purchaseOrderService := services.NewPurchaseOrderService(logger, mapper, &purchaseOrderRepo, &purchaseOrderProductsRepo, productsService)
 
 	routes.AddPurchaseOrderRoutes(router, logger, &routes.PurchaseOrderService{
 		PurchaseOrderService: purchaseOrderService,

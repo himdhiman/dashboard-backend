@@ -38,5 +38,5 @@ const (
 	ProductsSchedulersCollection = "ProductSchedulers"
 	TaskCollection = "DashboardTasks"
 	PurchaseOrderCollection = "PurchaseOrders"
-
+	PurchaseOrderProductCollection = "PurchaseOrderProducts"
 )

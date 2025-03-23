@@ -9,6 +9,7 @@ require (
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/himdhiman/dashboard-backend/libs/constants v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/mappers v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/services/products-service v0.0.0-20250227135410-83fbb743dc5f
 	github.com/mitchellh/mapstructure v1.5.0
@@ -88,3 +89,5 @@ replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/cons
 replace github.com/himdhiman/dashboard-backend/services/products-service => ../products-service
 
 replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
+
+replace github.com/himdhiman/dashboard-backend/libs/mappers => ../../libs/mappers

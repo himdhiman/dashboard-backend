@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -19,6 +20,9 @@ type IMongoClient interface {
 	Ping(ctx context.Context) error
 	GetCollection(ctx context.Context, name string) (*models.MongoCollection, error)
 }
+
+// ObjectID is a type alias for primitive.ObjectID from the MongoDB driver.
+type ObjectID = primitive.ObjectID
 
 type MongoClient struct {
 	IMongoClient

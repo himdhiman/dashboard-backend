@@ -10,47 +10,68 @@ import (
 	"github.com/go-playground/validator"
 	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
+	"github.com/himdhiman/dashboard-backend/libs/mappers"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	product_services "github.com/himdhiman/dashboard-backend/services/products-service/services"
+	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/utils"
 )
 
 type PurchaseOrderService struct {
-	Logger                  logger.ILogger
-	PurchaseOrderRepository *repository.Repository[models.PurchaseOrder]
-	ProductsService         product_services.ProductsService
+	Logger                          logger.ILogger
+	Mapper                          *mappers.Mapper
+	PurchaseOrderRepository         *repository.Repository[models.PurchaseOrder]
+	PurchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts]
+	ProductsService                 product_services.ProductsService
 }
 
 func NewPurchaseOrderService(logger logger.ILogger,
+	mapper *mappers.Mapper,
 	purchaseOrderRepository *repository.Repository[models.PurchaseOrder],
+	purchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts],
 	productsService product_services.ProductsService) *PurchaseOrderService {
 
 	return &PurchaseOrderService{
-		Logger:                  logger,
-		PurchaseOrderRepository: purchaseOrderRepository,
-		ProductsService:         productsService,
+		Logger:                          logger,
+		Mapper:                          mapper,
+		PurchaseOrderRepository:         purchaseOrderRepository,
+		PurchaseOrderProductsRepository: purchaseOrderProductsRepository,
+		ProductsService:                 productsService,
 	}
 }
 
+type CreatePurchaseOrderServiceResponse struct {
+	PurchaseOrderID     string
+	PurchaseOrderNumber string
+}
+
 // CreatePurchaseOrder creates a new purchase order with an incremental order number
-func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchaseOrderDTO *dto.CreatePurchaseOrderDTO) (*CreatePurchaseOrderServiceResponse, error) {
 	// Fetch the last purchase order to determine the next order number
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Creating purchase order", "correlationID", correlationID)
+
+	// Map the DTO to the model
+	var purchaseOrder models.PurchaseOrder
+	err := s.Mapper.Decode(purchaseOrderDTO, &purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error mapping DTO to model", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
 
 	// check if the vendor is valid or not
 	isVendorValid, err := s.ProductsService.IsValidVendor(ctx, purchaseOrder.Vendor)
 	if err != nil {
 		s.Logger.Error("Error checking if vendor is valid", "correlationID", correlationID, "error", err)
-		return err
+		return nil, err
 	}
 
 	if !isVendorValid {
 		s.Logger.Error("Invalid vendor", "correlationID", correlationID, "vendor", purchaseOrder.Vendor)
-		return fmt.Errorf("invalid vendor")
+		return nil, fmt.Errorf("invalid vendor")
 	}
 
 	lastOrder, err := s.PurchaseOrderRepository.FindOne(ctx, nil, &mongo_models.FindOptions{
@@ -58,7 +79,7 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 	})
 	if err != nil && err != mongo_errors.ErrDocumentNotFound {
 		s.Logger.Error("Error fetching last purchase order", "correlationID", correlationID, "error", err)
-		return err
+		return nil, err
 	}
 
 	// Determine the next order number
@@ -69,7 +90,7 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 		lastOrderNumber, err := strconv.Atoi(lastOrderNumberStr)
 		if err != nil {
 			s.Logger.Error("Error converting last order number to integer", "correlationID", correlationID, "error", err)
-			return err
+			return nil, err
 		}
 		nextOrderNumber = lastOrderNumber + 1
 	} else {
@@ -91,17 +112,20 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 	err = validator.Struct(purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error validating purchase order", "correlationID", correlationID, "error", err)
-		return err
+		return nil, err
 	}
 
 	// Save the purchase order to the database
-	_, err = s.PurchaseOrderRepository.Create(ctx, purchaseOrder)
+	_, err = s.PurchaseOrderRepository.Create(ctx, &purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error creating purchase order in DB", "correlationID", correlationID, "error", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &CreatePurchaseOrderServiceResponse{
+		PurchaseOrderID:     purchaseOrder.ID.Hex(),
+		PurchaseOrderNumber: purchaseOrder.PONumber,
+	}, nil
 }
 
 func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber string, updates map[string]interface{}) error {
@@ -133,18 +157,18 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	purchaseOrder.UpdatedAt = time.Now()
 
 	// Update order status based on product statuses
-	err = s.updatePurchaseOrderStatus(ctx, purchaseOrder)
-	if err != nil {
-		s.Logger.Error("Error updating purchase order status", "correlationID", correlationID, "error", err)
-		return err
-	}
+	// err = s.updatePurchaseOrderStatus(ctx, purchaseOrder)
+	// if err != nil {
+	// 	s.Logger.Error("Error updating purchase order status", "correlationID", correlationID, "error", err)
+	// 	return err
+	// }
 
-	// Update shipping status based on shipping marks
-	err = s.updateShippingStatus(ctx, purchaseOrder)
-	if err != nil {
-		s.Logger.Error("Error updating shipping status", "correlationID", correlationID, "error", err)
-		return err
-	}
+	// // Update shipping status based on shipping marks
+	// err = s.updateShippingStatus(ctx, purchaseOrder)
+	// if err != nil {
+	// 	s.Logger.Error("Error updating shipping status", "correlationID", correlationID, "error", err)
+	// 	return err
+	// }
 
 	// validate the purchase order use validator v10
 	validator := validator.New()
@@ -164,76 +188,76 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	return nil
 }
 
-func (s *PurchaseOrderService) updatePurchaseOrderStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
-	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Updating purchase order status", "correlationID", correlationID)
+// func (s *PurchaseOrderService) updatePurchaseOrderStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+// 	correlationID := ctx.Value(constants.CorrelationID).(string)
+// 	s.Logger.Info("Updating purchase order status", "correlationID", correlationID)
 
-	// Initialize counters for SKU statuses
-	finalCount := 0
-	pendingCount := 0
+// 	// Initialize counters for SKU statuses
+// 	finalCount := 0
+// 	pendingCount := 0
 
-	// Count the number of SKUs with each status
-	for _, sku := range purchaseOrder.Products {
-		if sku.Status == "finalized" {
-			finalCount++
-		} else if sku.Status == "pending" {
-			pendingCount++
-		}
-	}
+// 	// Count the number of SKUs with each status
+// 	for _, sku := range purchaseOrder.Products {
+// 		if sku.Status == "finalized" {
+// 			finalCount++
+// 		} else if sku.Status == "pending" {
+// 			pendingCount++
+// 		}
+// 	}
 
-	totalSkus := len(purchaseOrder.Products)
+// 	totalSkus := len(purchaseOrder.Products)
 
-	// Determine overall PO status based on SKU statuses
-	var newStatus string
-	if finalCount == totalSkus {
-		newStatus = "finalized"
-	} else if pendingCount == totalSkus {
-		newStatus = "pending"
-	} else {
-		newStatus = "partially_pending"
-	}
+// 	// Determine overall PO status based on SKU statuses
+// 	var newStatus string
+// 	if finalCount == totalSkus {
+// 		newStatus = "finalized"
+// 	} else if pendingCount == totalSkus {
+// 		newStatus = "pending"
+// 	} else {
+// 		newStatus = "partially_pending"
+// 	}
 
-	// Update the PO status if it has changed
-	if purchaseOrder.OrderStatus != newStatus {
-		purchaseOrder.OrderStatus = newStatus
-	}
+// 	// Update the PO status if it has changed
+// 	if purchaseOrder.OrderStatus != newStatus {
+// 		purchaseOrder.OrderStatus = newStatus
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
-	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Updating purchase order shipping status", "correlationID", correlationID)
+// func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+// 	correlationID := ctx.Value(constants.CorrelationID).(string)
+// 	s.Logger.Info("Updating purchase order shipping status", "correlationID", correlationID)
 
-	// Initialize counters for shipping mark status
-	totalSkus := len(purchaseOrder.Products)
-	skusWithShippingMark := 0
+// 	// Initialize counters for shipping mark status
+// 	totalSkus := len(purchaseOrder.Products)
+// 	skusWithShippingMark := 0
 
-	// Count SKUs with shipping marks
-	for _, product := range purchaseOrder.Products {
-		if product.ShippingMark != "" {
-			skusWithShippingMark++
-		}
-	}
+// 	// Count SKUs with shipping marks
+// 	for _, product := range purchaseOrder.Products {
+// 		if product.ShippingMark != "" {
+// 			skusWithShippingMark++
+// 		}
+// 	}
 
-	// Determine shipping status based on shipping marks
-	var newStatus string
-	if skusWithShippingMark == 0 {
-		newStatus = "pending"
-	} else if skusWithShippingMark == totalSkus {
-		newStatus = "complete"
-	} else {
-		newStatus = "partly_shipped"
-	}
+// 	// Determine shipping status based on shipping marks
+// 	var newStatus string
+// 	if skusWithShippingMark == 0 {
+// 		newStatus = "pending"
+// 	} else if skusWithShippingMark == totalSkus {
+// 		newStatus = "complete"
+// 	} else {
+// 		newStatus = "partly_shipped"
+// 	}
 
-	// Update the shipping status if it has changed
-	if purchaseOrder.ShippingStatus != newStatus {
-		purchaseOrder.ShippingStatus = newStatus
-		purchaseOrder.UpdatedAt = time.Now()
-	}
+// 	// Update the shipping status if it has changed
+// 	if purchaseOrder.ShippingStatus != newStatus {
+// 		purchaseOrder.ShippingStatus = newStatus
+// 		purchaseOrder.UpdatedAt = time.Now()
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (s *PurchaseOrderService) GetPurchaseOrders(ctx context.Context, poNumber string, pageNumber int, fieldsPerPage int) ([]*models.PurchaseOrder, int64, error) {
 	correlationID := ctx.Value(constants.CorrelationID).(string)
@@ -281,43 +305,43 @@ func (s *PurchaseOrderService) DeletePurchaseOrder(ctx context.Context, poNumber
 	return nil
 }
 
-func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, poNumber string, skuCode string) error {
-	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Deleting product from purchase order", "correlationID", correlationID)
+// func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, poNumber string, skuCode string) error {
+// 	correlationID := ctx.Value(constants.CorrelationID).(string)
+// 	s.Logger.Info("Deleting product from purchase order", "correlationID", correlationID)
 
-	// Fetch the purchase order
-	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"poNumber": poNumber}, nil)
-	if err != nil {
-		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
-		return err
-	}
+// 	// Fetch the purchase order
+// 	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"poNumber": poNumber}, nil)
+// 	if err != nil {
+// 		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
+// 		return err
+// 	}
 
-	// Find the product in the purchase order
-	productIndex := -1
-	for i, product := range purchaseOrder.Products {
-		if product.SkuCode == skuCode {
-			productIndex = i
-			break
-		}
-	}
+// 	// Find the product in the purchase order
+// 	productIndex := -1
+// 	for i, product := range purchaseOrder.Products {
+// 		if product.SkuCode == skuCode {
+// 			productIndex = i
+// 			break
+// 		}
+// 	}
 
-	if productIndex == -1 {
-		s.Logger.Error("Product not found in purchase order", "correlationID", correlationID, "skuCode", skuCode)
-		return fmt.Errorf("product with SKU %s not found in purchase order %s", skuCode, poNumber)
-	}
+// 	if productIndex == -1 {
+// 		s.Logger.Error("Product not found in purchase order", "correlationID", correlationID, "skuCode", skuCode)
+// 		return fmt.Errorf("product with SKU %s not found in purchase order %s", skuCode, poNumber)
+// 	}
 
-	// Remove the product from the purchase order
-	purchaseOrder.Products = append(purchaseOrder.Products[:productIndex], purchaseOrder.Products[productIndex+1:]...)
+// 	// Remove the product from the purchase order
+// 	purchaseOrder.Products = append(purchaseOrder.Products[:productIndex], purchaseOrder.Products[productIndex+1:]...)
 
-	// Update the updatedAt field
-	purchaseOrder.UpdatedAt = time.Now()
+// 	// Update the updatedAt field
+// 	purchaseOrder.UpdatedAt = time.Now()
 
-	// Save the updated purchase order
-	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"poNumber": poNumber}, purchaseOrder)
-	if err != nil {
-		s.Logger.Error("Error updating purchase order in DB", "correlationID", correlationID, "error", err)
-		return err
-	}
+// 	// Save the updated purchase order
+// 	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"poNumber": poNumber}, purchaseOrder)
+// 	if err != nil {
+// 		s.Logger.Error("Error updating purchase order in DB", "correlationID", correlationID, "error", err)
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

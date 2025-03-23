@@ -20,7 +20,7 @@ func AddPurchaseOrderRoutes(router *gin.Engine, logger logger.ILogger, purchaseO
 	router.PUT("/purchase-orders", purchaseOrderController.UpdatePurchaseOrder)
 	router.DELETE("/purchase-orders", purchaseOrderController.DeletePurchaseOrder)
 
-	router.DELETE("/purchase-order-products", purchaseOrderController.DeletePurchaseOrderProduct)
+	// router.DELETE("/purchase-order-products", purchaseOrderController.DeletePurchaseOrderProduct)
 
 	return router
 }

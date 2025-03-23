@@ -9,10 +9,8 @@ import (
 	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
-	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/mappers"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/services"
-	"github.com/mitchellh/mapstructure"
 )
 
 type PurchaseOrderController struct {
@@ -46,26 +44,26 @@ func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 		return
 	}
 
-	var purchaseOrder models.PurchaseOrder
-	config := &mapstructure.DecoderConfig{
-		DecodeHook: mappers.DecodeTimeHookFunc(),
-		Result:     &purchaseOrder,
-	}
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		poc.Logger.Error("Error creating decoder", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
-		return
-	}
+	// var purchaseOrder models.PurchaseOrder
+	// config := &mapstructure.DecoderConfig{
+	// 	DecodeHook: mappers.DecodeTimeHookFunc(),
+	// 	Result:     &purchaseOrder,
+	// }
+	// decoder, err := mapstructure.NewDecoder(config)
+	// if err != nil {
+	// 	poc.Logger.Error("Error creating decoder", "error", err, "correlationID", correlationID)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
+	// 	return
+	// }
 
-	if err := decoder.Decode(dto); err != nil {
-		poc.Logger.Error("Error mapping DTO to model", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
-		return
-	}
+	// if err := decoder.Decode(dto); err != nil {
+	// 	poc.Logger.Error("Error mapping DTO to model", "error", err, "correlationID", correlationID)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
+	// 	return
+	// }
 
 	poc.Logger.Info("Creating purchase order in service", "correlationID", correlationID)
-	err = poc.Service.CreatePurchaseOrder(ctx, &purchaseOrder)
+	purchaseOrder, err := poc.Service.CreatePurchaseOrder(ctx, &dto)
 	if err != nil {
 		if err.Error() == constants.ErrInvalidVendor {
 			poc.Logger.Error("Error creating purchase order", "error", err, "correlationID", correlationID)
@@ -77,8 +75,8 @@ func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 		return
 	}
 
-	poc.Logger.Info("Purchase order created successfully", "orderNumber", purchaseOrder.PONumber, "correlationID", correlationID)
-	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.PONumber})
+	poc.Logger.Info("Purchase order created successfully", "orderNumber", purchaseOrder.PurchaseOrderNumber, "correlationID", correlationID)
+	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.PurchaseOrderNumber, "id": purchaseOrder.PurchaseOrderID})
 }
 
 func (poc *PurchaseOrderController) UpdatePurchaseOrder(c *gin.Context) {
@@ -199,33 +197,33 @@ func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Purchase order deleted successfully"})
 }
 
-func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
-	ctx := c.Request.Context()
-	correlationID := c.GetHeader(string(constants.CorrelationID))
-	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-		return
-	}
-	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+// func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
+// 	ctx := c.Request.Context()
+// 	correlationID := c.GetHeader(string(constants.CorrelationID))
+// 	if correlationID == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+// 		return
+// 	}
+// 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 
-	poNumber := c.Query("poNumber")
-	if poNumber == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
-		return
-	}
+// 	poNumber := c.Query("poNumber")
+// 	if poNumber == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
+// 		return
+// 	}
 
-	skuCode := c.Query("skuCode")
-	if skuCode == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing SKU code"})
-		return
-	}
+// 	skuCode := c.Query("skuCode")
+// 	if skuCode == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing SKU code"})
+// 		return
+// 	}
 
-	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, poNumber, skuCode)
-	if err != nil {
-		poc.Logger.Error("Error deleting product from purchase order", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product from purchase order" + err.Error()})
-		return
-	}
+// 	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, poNumber, skuCode)
+// 	if err != nil {
+// 		poc.Logger.Error("Error deleting product from purchase order", "error", err, "correlationID", correlationID)
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product from purchase order" + err.Error()})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Product deleted from purchase order successfully"})
-}
+// 	c.JSON(http.StatusOK, gin.H{"message": "Product deleted from purchase order successfully"})
+// }
