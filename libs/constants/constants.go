@@ -33,10 +33,16 @@ const (
 
 // Collection Names
 const (
-	ConfluxApisCollection = "ConfluxApis"
-	UnicommerceProductsCollection = "UnicommerceProducts"
-	ProductsSchedulersCollection = "ProductSchedulers"
-	TaskCollection = "DashboardTasks"
-	PurchaseOrderCollection = "PurchaseOrders"
+	ConfluxApisCollection          = "ConfluxApis"
+	UnicommerceProductsCollection  = "UnicommerceProducts"
+	ProductsSchedulersCollection   = "ProductSchedulers"
+	TaskCollection                 = "DashboardTasks"
+	PurchaseOrderCollection        = "PurchaseOrders"
 	PurchaseOrderProductCollection = "PurchaseOrderProducts"
 )
+
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+}

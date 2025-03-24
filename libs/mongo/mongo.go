@@ -38,6 +38,10 @@ func NewMongoConfig(mongoURL, databaseName string) *models.Config {
 	}
 }
 
+func NewObjectID() primitive.ObjectID {
+	return primitive.NewObjectID()
+}
+
 // NewMongoClient initializes the MongoDB connection and returns a MongoClient instance
 func NewMongoClient(config *models.Config, logger logger.ILogger) (IMongoClient, error) {
 	client := &MongoClient{Logger: logger}

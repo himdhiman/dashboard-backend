@@ -18,6 +18,7 @@ func NewMapper() *Mapper {
 		decoderConfig: &mapstructure.DecoderConfig{
 			DecodeHook: mapstructure.ComposeDecodeHookFunc(
 				DecodeTimeHookFunc(), // Add time decoding support
+				DecodeObjectIDHookFunc(),
 			),
 			TagName: "json", // Default tag to use for mapping
 			Result:  nil,    // Result will be set during decoding
@@ -48,7 +49,8 @@ func (m *Mapper) DecodeWithCustomHook(input interface{}, output interface{}, cus
 
 	m.decoderConfig.DecodeHook = mapstructure.ComposeDecodeHookFunc(
 		DecodeTimeHookFunc(), // Default time decoding
-		customHook,           // Add custom hook
+		DecodeObjectIDHookFunc(),
+		customHook, // Add custom hook
 	)
 	m.decoderConfig.Result = output
 

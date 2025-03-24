@@ -98,3 +98,5 @@ replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflu
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
 
 replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants
+
+replace golang.org/x/net => golang.org/x/net v0.7.0

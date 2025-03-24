@@ -1,6 +1,8 @@
 module github.com/himdhiman/dashboard-backend/libs/httpsuite
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.23.7
 
 require github.com/stretchr/testify v1.10.0
 

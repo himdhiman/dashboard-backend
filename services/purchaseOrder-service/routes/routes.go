@@ -15,10 +15,14 @@ func AddPurchaseOrderRoutes(router *gin.Engine, logger logger.ILogger, purchaseO
 
 	purchaseOrderController := controllers.NewPurchaseOrderController(logger, purchaseOrderService.PurchaseOrderService)
 
-	router.GET("/purchase-order", purchaseOrderController.GetPurchaseOrders)
+	router.GET("/purchase-order-list", purchaseOrderController.ListPurchaseOrders)
+	router.GET("/purchase-order", purchaseOrderController.GetPurchaseOrder)
 	router.POST("/purchase-order", purchaseOrderController.CreatePurchaseOrder)
 	router.PUT("/purchase-orders", purchaseOrderController.UpdatePurchaseOrder)
 	router.DELETE("/purchase-orders", purchaseOrderController.DeletePurchaseOrder)
+
+	router.POST("/purchase-order/products", purchaseOrderController.CreatePurchaseOrderProduct)
+	router.PUT("/purchase-order/products", purchaseOrderController.UpdatePurchaseOrderProduct)
 
 	// router.DELETE("/purchase-order-products", purchaseOrderController.DeletePurchaseOrderProduct)
 

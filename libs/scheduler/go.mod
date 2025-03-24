@@ -1,6 +1,8 @@
 module github.com/himdhiman/dashboard-backend/libs/scheduler
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.23.7
 
 require github.com/robfig/cron/v3 v3.0.1
 

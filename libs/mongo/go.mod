@@ -1,6 +1,8 @@
 module github.com/himdhiman/dashboard-backend/libs/mongo
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.23.7
 
 require (
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20241218052858-2f8483cbcb4a

@@ -1,0 +1,9 @@
+go 1.23.0
+
+toolchain go1.23.7
+
+use (
+	./libs/mappers
+	./services/dashboard-service
+	./services/purchaseOrder-service
+)

@@ -15,6 +15,8 @@ type PurchaseOrderProducts struct {
 	Remarks         string         `json:"remarks" bson:"remarks"`
 	ShippingMark    string         `json:"shippingMark" bson:"shippingMark"`
 	OrderDate       time.Time      `json:"orderDate" bson:"orderDate" validate:"required"`
+	CreatedAt       time.Time      `json:"createdAt" bson:"createdAt" validate:"required"`
+	UpdatedAt       time.Time      `json:"updatedAt" bson:"updatedAt" validate:"required"`
 }
 
 type PurchaseOrder struct {
@@ -22,13 +24,12 @@ type PurchaseOrder struct {
 	PONumber              string           `json:"poNumber" bson:"poNumber" validate:"required"`
 	Vendor                string           `json:"vendor" bson:"vendor" validate:"required"`
 	OrderDate             time.Time        `json:"orderDate" bson:"orderDate" validate:"required"`
-	TotalAmount           float64          `json:"totalAmount" bson:"totalAmount" validate:"required,min=0"`
-	Products              []mongo.ObjectID `json:"products" bson:"products" validate:"required,min=1,dive"`
-	Deposits              float64          `json:"deposits" bson:"deposits" validate:"min=0"`
+	Products              []mongo.ObjectID `json:"products" bson:"products" validate:"required"`
+	Deposits              float64          `json:"deposits" bson:"deposits" validate:"gte=0"`
 	OrderStatus           string           `json:"orderStatus" bson:"orderStatus" validate:"required,oneof=pending partially_pending finalized"`
 	ShippingStatus        string           `json:"shippingStatus" bson:"shippingStatus" validate:"required,oneof=pending complete partly_shipped"`
 	TentativeDispatchDate time.Time        `json:"tentativeDispatchDate" bson:"tentativeDispatchDate" validate:"required"`
 	OrderType             string           `json:"orderType" bson:"orderType" validate:"required,oneof=new repeat"`
-	Remarks               string           `json:"remarks" bson:"remarks"`
+	Remarks               string           `json:"remarks" bson:"remarks" validate:"omitempty"`
 	UpdatedAt             time.Time        `json:"updatedAt" bson:"updatedAt" validate:"required"`
 }

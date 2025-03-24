@@ -1,6 +1,8 @@
 module github.com/himdhiman/dashboard-backend/libs/conflux
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.23.7
 
 require (
 	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20250227135410-83fbb743dc5f

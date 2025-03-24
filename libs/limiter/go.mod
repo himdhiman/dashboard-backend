@@ -1,6 +1,8 @@
 module github.com/himdhiman/dashboard-backend/libs/limiter
 
-go 1.22.2
+go 1.23.0
+
+toolchain go1.23.7
 
 require (
 	github.com/himdhiman/dashboard-backend/libs/cache v0.0.0-20241218092156-3cd9c315706d
@@ -13,7 +15,6 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
@@ -27,5 +28,7 @@ require (
 )
 
 replace github.com/himdhiman/dashboard-backend/libs/cache => ../cache
+
 replace github.com/himdhiman/dashboard-backend/libs/logger => ../logger
+
 replace github.com/himdhiman/dashboard-backend/libs/mongo => ../mongo

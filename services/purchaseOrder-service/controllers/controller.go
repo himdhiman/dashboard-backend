@@ -1,17 +1,19 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator"
 	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
-	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/services"
 )
+
+const SuccessPurchaseOrderCreated = "Purchase order created successfully"
 
 type PurchaseOrderController struct {
 	Logger  logger.ILogger
@@ -27,12 +29,7 @@ func NewPurchaseOrderController(logger logger.ILogger, service *services.Purchas
 
 func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 	ctx := c.Request.Context()
-	correlationID := c.GetHeader(string(constants.CorrelationID))
-	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-		return
-	}
-	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	correlationID := poc.getCorrelationID(c)
 
 	poc.Logger.Info("Creating purchase order", "correlationID", correlationID)
 
@@ -40,85 +37,67 @@ func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&dto); err != nil {
 		poc.Logger.Error("Error binding JSON", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrInvalidRequest, "details": err.Error()})
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
 		return
 	}
 
-	// var purchaseOrder models.PurchaseOrder
-	// config := &mapstructure.DecoderConfig{
-	// 	DecodeHook: mappers.DecodeTimeHookFunc(),
-	// 	Result:     &purchaseOrder,
-	// }
-	// decoder, err := mapstructure.NewDecoder(config)
-	// if err != nil {
-	// 	poc.Logger.Error("Error creating decoder", "error", err, "correlationID", correlationID)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
-	// 	return
-	// }
-
-	// if err := decoder.Decode(dto); err != nil {
-	// 	poc.Logger.Error("Error mapping DTO to model", "error", err, "correlationID", correlationID)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
-	// 	return
-	// }
+	// Validate the DTO
+	if err := validator.New().Struct(&dto); err != nil {
+		poc.Logger.Error("Validation failed for DTO", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
+		return
+	}
 
 	poc.Logger.Info("Creating purchase order in service", "correlationID", correlationID)
 	purchaseOrder, err := poc.Service.CreatePurchaseOrder(ctx, &dto)
 	if err != nil {
 		if err.Error() == constants.ErrInvalidVendor {
 			poc.Logger.Error("Error creating purchase order", "error", err, "correlationID", correlationID)
-			c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrInvalidVendor})
+			poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
 			return
 		}
 		poc.Logger.Error("Error creating purchase order", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
 		return
 	}
 
-	poc.Logger.Info("Purchase order created successfully", "orderNumber", purchaseOrder.PurchaseOrderNumber, "correlationID", correlationID)
-	c.JSON(http.StatusCreated, gin.H{"message": "Purchase order created successfully", "orderNumber": purchaseOrder.PurchaseOrderNumber, "id": purchaseOrder.PurchaseOrderID})
+	poc.Logger.Info("Purchase order created successfully", "orderNumber", purchaseOrder.ID, "correlationID", correlationID)
+	poc.respondWithSuccess(c, http.StatusCreated, SuccessPurchaseOrderCreated, purchaseOrder)
+
 }
 
 func (poc *PurchaseOrderController) UpdatePurchaseOrder(c *gin.Context) {
 	ctx := c.Request.Context()
-	correlationID := c.GetHeader(string(constants.CorrelationID))
-	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-		return
-	}
-	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	correlationID := ctx.Value(constants.CorrelationID).(string)
 
-	poNumber := c.DefaultQuery("poNumber", "")
+	poNumber := c.DefaultQuery("poID", "")
 	if poNumber == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
+		poc.Logger.Error("Missing purchase order number", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order number", nil)
 		return
 	}
 
 	var updates map[string]interface{}
 	if err := c.ShouldBindJSON(&updates); err != nil {
 		poc.Logger.Error("Error binding JSON", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrInvalidRequest, "details": err.Error()})
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
 		return
 	}
 
 	err := poc.Service.UpdatePurchaseOrder(ctx, poNumber, updates)
 	if err != nil {
 		poc.Logger.Error("Error updating purchase order", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to update purchase order" + err.Error()})
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to update purchase order", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Purchase order updated successfully"})
+	poc.Logger.Info("Purchase order updated successfully", "correlationID", correlationID)
+	poc.respondWithSuccess(c, http.StatusOK, "Purchase order updated successfully", nil)
 }
 
-func (poc *PurchaseOrderController) GetPurchaseOrders(c *gin.Context) {
+func (poc *PurchaseOrderController) ListPurchaseOrders(c *gin.Context) {
 	ctx := c.Request.Context()
-	correlationID := c.GetHeader(string(constants.CorrelationID))
-	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-		return
-	}
-	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	// Parse query parameters
 	pageNumberStr := c.DefaultQuery("page", "1")
@@ -138,63 +117,151 @@ func (poc *PurchaseOrderController) GetPurchaseOrders(c *gin.Context) {
 	}
 
 	// Fetch purchase orders
-	purchaseOrdersPtr, total, err := poc.Service.GetPurchaseOrders(ctx, orderNumber, pageNumber, limit)
+	purchaseOrders, total, err := poc.Service.ListPurchaseOrders(ctx, orderNumber, pageNumber, limit)
 	if err != nil {
 		poc.Logger.Error("Error fetching purchase orders", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": constants.ErrInternalServer})
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to fetch purchase orders", err.Error())
 		return
 	}
 
-	if len(purchaseOrdersPtr) == 0 {
+	if len(purchaseOrders) == 0 {
 		poc.Logger.Info("No purchase orders found", "orderNumber", orderNumber, "correlationID", correlationID)
-		c.JSON(http.StatusOK, gin.H{"data": []models.PurchaseOrder{}, "total": 0, "page": pageNumber, "limit": limit})
+		poc.respondWithError(c, http.StatusNotFound, "No purchase orders found", nil)
 		return
 	}
 
-	purchaseOrders := make([]models.PurchaseOrder, len(purchaseOrdersPtr))
-	for i, p := range purchaseOrdersPtr {
-		purchaseOrders[i] = *p
-	}
+	// purchaseOrders := make([]dto.ListPurchaseOrdersDTO, len(purchaseOrdersPtr))
+	// for i, p := range purchaseOrdersPtr {
+	// 	purchaseOrders[i] = *p
+	// }
 
 	response := struct {
-		Data  []models.PurchaseOrder `json:"data"`
-		Total int                    `json:"total"`
-		Page  int                    `json:"page"`
-		Limit int                    `json:"limit"`
+		PurchaseOrders []dto.ListPurchaseOrdersDTO `json:"purchaseOrders"`
+		Total          int                         `json:"total"`
+		Page           int                         `json:"page"`
+		Limit          int                         `json:"limit"`
 	}{
-		Data:  purchaseOrders,
-		Total: int(total),
-		Page:  pageNumber,
-		Limit: limit,
+		PurchaseOrders: purchaseOrders,
+		Total:          int(total),
+		Page:           pageNumber,
+		Limit:          limit,
 	}
 
-	poc.Logger.Info("Successfully fetched purchase orders", "total", total, "page", pageNumber, "limit", limit, "correlationID", correlationID)
-	c.JSON(http.StatusOK, response)
+	poc.respondWithSuccess(c, http.StatusOK, "Purchase Order List fetched Successfully", response)
+}
+
+func (poc *PurchaseOrderController) GetPurchaseOrder(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+
+	poID := c.DefaultQuery("poID", "")
+	if poID == "" {
+		poc.Logger.Error("Missing purchase order id", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order id", nil)
+		return
+	}
+
+	purchaseOrder, err := poc.Service.GetPurchaseOrder(ctx, poID)
+	if err != nil {
+		poc.Logger.Error("Error fetching purchase order", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to fetch purchase order", err.Error())
+		return
+	}
+
+	poc.respondWithSuccess(c, http.StatusOK, "Purchase order fetched successfully", purchaseOrder)
 }
 
 func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
 	ctx := c.Request.Context()
-	correlationID := c.GetHeader(string(constants.CorrelationID))
-	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-		return
-	}
-	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	correlationID := ctx.Value(constants.CorrelationID).(string)
 
-	poNumber := c.Query("poNumber")
-	if poNumber == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
+	poID := c.DefaultQuery("poID", "")
+	if poID == "" {
+		poc.Logger.Error("Missing purchase order id", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order id", nil)
 		return
 	}
 
-	err := poc.Service.DeletePurchaseOrder(ctx, poNumber)
+	err := poc.Service.DeletePurchaseOrder(ctx, poID)
 	if err != nil {
 		poc.Logger.Error("Error deleting purchase order", "error", err, "correlationID", correlationID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete purchase order" + err.Error()})
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to delete purchase order", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Purchase order deleted successfully"})
+	poc.Logger.Info("Purchase order deleted successfully", "correlationID", correlationID)
+	poc.respondWithSuccess(c, http.StatusOK, "Purchase order deleted successfully", nil)
+}
+
+func (poc *PurchaseOrderController) CreatePurchaseOrderProduct(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+
+	poc.Logger.Info("Creating purchase order product", "correlationID", correlationID)
+
+	var dto dto.CreatePurchaseOrderProductDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		poc.Logger.Error("Error binding JSON", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
+		return
+	}
+
+	poc.Logger.Info("Validating DTO", "correlationID", correlationID)
+	if err := validator.New().Struct(&dto); err != nil {
+		poc.Logger.Error("Validation failed for DTO", "error", err, "correlationID ", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
+		return
+	}
+
+	poID := c.DefaultQuery("poID", "")
+	if poID == "" {
+		poc.Logger.Error("Missing purchase order id", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order ID", nil)
+		return
+	}
+
+	poc.Logger.Info("Creating purchase order product in service", "correlationID", correlationID)
+	purchaseOrderProduct, err := poc.Service.AddProductToPurchaseOrder(ctx, poID, &dto)
+	if err != nil {
+		poc.Logger.Error("Error creating purchase order product", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to create purchase order product", err.Error())
+		return
+	}
+
+	poc.Logger.Info("Purchase order product created successfully", "correlationID", correlationID)
+	c.JSON(http.StatusCreated, purchaseOrderProduct)
+}
+
+func (poc *PurchaseOrderController) UpdatePurchaseOrderProduct(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
+	ctx := c.Request.Context()
+
+	poc.Logger.Info("Updating purchase order product", "correlationID", correlationID)
+
+	productID := c.DefaultQuery("productID", "")
+	if productID == "" {
+		poc.Logger.Error("Missing product ID", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing product ID", nil)
+		return
+	}
+
+	var updates map[string]interface{}
+	err := c.BindJSON(&updates)
+	if err != nil {
+		poc.Logger.Error("Error binding JSON", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, constants.ErrInvalidRequest, err.Error())
+		return
+	}
+
+	err = poc.Service.UpdatePurchaseOrderProduct(ctx, productID, updates)
+	if err != nil {
+		poc.Logger.Error("Error updating purchase order product", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to update purchase order product", err.Error())
+		return
+	}
+
+	poc.Logger.Info("Purchase order product updated successfully", "correlationID", correlationID)
+	poc.respondWithSuccess(c, http.StatusOK, "Purchase order product updated successfully", nil)
 }
 
 // func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
@@ -227,3 +294,29 @@ func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
 
 // 	c.JSON(http.StatusOK, gin.H{"message": "Product deleted from purchase order successfully"})
 // }
+
+// Helper function to get the correlation ID from the request
+
+func (poc *PurchaseOrderController) getCorrelationID(c *gin.Context) string {
+	return strings.TrimSpace(c.GetHeader(string(constants.CorrelationID)))
+}
+
+// Helper function to respond with an error
+func (poc *PurchaseOrderController) respondWithError(c *gin.Context, statusCode int, message string, data interface{}) {
+	resp := &constants.APIResponse{
+		Success: false,
+		Message: message,
+		Data:    data,
+	}
+	c.JSON(statusCode, resp)
+}
+
+// Helper function to respond with success
+func (poc *PurchaseOrderController) respondWithSuccess(c *gin.Context, statusCode int, message string, data interface{}) {
+	resp := &constants.APIResponse{
+		Success: true,
+		Message: message,
+		Data:    data,
+	}
+	c.JSON(statusCode, resp)
+}

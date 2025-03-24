@@ -7,138 +7,93 @@ import (
 	"time"
 )
 
-func IsAllowedField(fieldPath string) bool {
-
-	var allowedFields = map[string]bool{
-		"OrderStatus":           true,
-		"TotalAmount":           true,
-		"TentativeDispatchDate": true,
-		"Remarks":               true,
-		"Deposits":              true,
-		"OrderType":             true,
-	}
-
-	var allowedProductFields = map[string]bool{
-		"SkuCode":         true,
-		"ImageURL":        true,
-		"Quantity":        true,
-		"CurrentRMBPrice": true,
-		"Status":          true,
-		"Remarks":         true,
-		"ShippingMark":    true,
-		"OrderDate":       true,
-	}
-
-	fields := strings.Split(fieldPath, ".")
-	if len(fields) == 1 {
-		return allowedFields[fields[0]]
-	} else if len(fields) == 3 && fields[0] == "Products" {
-		return allowedProductFields[fields[2]]
-	}
-	return false
+var AllowedFields = map[string]bool{
+	"OrderStatus":           true,
+	"TotalAmount":           true,
+	"TentativeDispatchDate": true,
+	"Remarks":               true,
+	"Deposits":              true,
+	"OrderType":             true,
 }
 
-// setField navigates through obj based on the dot-separated fieldPath.
-// It supports nested fields and has special handling for "Products" where the second token is the SKU.
-// If the SKU is new, a new product entry is created, its SkuCode is set, and it is appended to the purchase order.
-func SetField(obj interface{}, fieldPath string, value interface{}) error {
+var AllowedProductFields = map[string]bool{
+	"Quantity":        true,
+	"CurrentRMBPrice": true,
+	"Status":          true,
+	"Remarks":         true,
+	"ShippingMark":    true,
+	"OrderDate":       true,
+}
+
+// this function will simply set the path of the object to the value, path will be in the format of "field1.field2.field3"
+// if the path is not found in the object, it will return an error
+func SetField(obj interface{}, fieldPath string, value interface{}, allowedFields map[string]bool) error {
+	// Check if the fieldPath is in the allowed fields
+	if !allowedFields[fieldPath] {
+		return fmt.Errorf("field %s is not allowed to be updated", fieldPath)
+	}
+
+	// Get the value of the object
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return fmt.Errorf("object must be a non-nil pointer")
+	}
+
+	// Dereference the pointer to get the underlying value
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("object must point to a struct")
+	}
+
+	// Split the field path into parts
 	fields := strings.Split(fieldPath, ".")
-	// Start with the base object; we assume obj is a pointer.
-	v := reflect.ValueOf(obj).Elem()
 
-	// Process the field tokens one by one.
-	for len(fields) > 0 {
-		field := fields[0]
-		fields = fields[1:]
+	// Traverse the fields to get to the desired field
+	for i, field := range fields {
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				// Initialize the pointer if it's nil
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			v = v.Elem()
+		}
 
-		if field == "Products" {
-			// Next token must be the SKU.
-			if len(fields) < 2 {
-				return fmt.Errorf("invalid field path for Products: %s", fieldPath)
-			}
-			sku := fields[0]
-			// Consume the SKU token.
-			fields = fields[1:]
-			productsField := v.FieldByName("Products")
-			if !productsField.IsValid() {
-				return fmt.Errorf("no such field: Products")
-			}
-			if productsField.Kind() != reflect.Slice {
-				return fmt.Errorf("products field is not a slice")
-			}
-			var product reflect.Value
-			found := false
-			// Search for an existing product with the given SKU.
-			for i := 0; i < productsField.Len(); i++ {
-				candidate := productsField.Index(i)
-				if candidate.FieldByName("SkuCode").String() == sku {
-					product = candidate
-					found = true
-					break
-				}
-			}
-			if !found {
-				// Create a new product instance.
-				elemType := productsField.Type().Elem()
-				newProduct := reflect.New(elemType).Elem()
-				// Set the SkuCode on the new product.
-				skuField := newProduct.FieldByName("SkuCode")
-				if skuField.IsValid() && skuField.CanSet() && skuField.Kind() == reflect.String {
-					skuField.SetString(sku)
-				} else {
-					return fmt.Errorf("cannot set SkuCode on new product for SKU %s", sku)
-				}
-				// Append the new product to the Products slice.
-				newSlice := reflect.Append(productsField, newProduct)
-				productsField.Set(newSlice)
-				// Retrieve the newly added product.
-				product = newSlice.Index(newSlice.Len() - 1)
-			}
-			// Now continue updating within the found or newly created product.
-			v = product
-		} else {
-			// If no further tokens, then this field should be set.
-			if len(fields) == 0 {
-				f := v.FieldByName(field)
-				if !f.IsValid() {
-					return fmt.Errorf("no such field: %s in object", field)
-				}
-				if !f.CanSet() {
-					return fmt.Errorf("cannot set field %s", field)
-				}
-				val := reflect.ValueOf(value)
-				// Special handling for time.Time fields.
-				if f.Type() == reflect.TypeOf(time.Time{}) {
-					str, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected string value for time field %s", field)
-					}
-					parsedTime, err := time.Parse(time.RFC3339, str)
-					if err != nil {
-						return fmt.Errorf("error parsing time for field %s: %v", field, err)
-					}
-					val = reflect.ValueOf(parsedTime)
-				} else if f.Type() != val.Type() {
-					return fmt.Errorf("provided value type didn't match field %s type: expected %s but got %s", field, f.Type(), val.Type())
-				}
-				f.Set(val)
-				return nil
-			} else {
-				// Not the final field: move deeper into the object.
-				v = v.FieldByName(field)
-				if !v.IsValid() {
-					return fmt.Errorf("no such field: %s in object", field)
-				}
-				// If v is a pointer, ensure it is non-nil.
-				if v.Kind() == reflect.Ptr {
-					if v.IsNil() {
-						v.Set(reflect.New(v.Type().Elem()))
-					}
-					v = v.Elem()
-				}
-			}
+		if v.Kind() != reflect.Struct {
+			return fmt.Errorf("field %s is not a struct", strings.Join(fields[:i], "."))
+		}
+
+		v = v.FieldByName(field)
+		if !v.IsValid() {
+			return fmt.Errorf("field %s not found in struct", strings.Join(fields[:i+1], "."))
 		}
 	}
 
+	// Set the value of the field
+	if !v.CanSet() {
+		return fmt.Errorf("field %s cannot be set", fieldPath)
+	}
+
+	// Handle time conversion if the field is of type time.Time
+	if v.Type() == reflect.TypeOf(time.Time{}) {
+		timeStr, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field %s expects a string for time conversion", fieldPath)
+		}
+
+		parsedTime, err := time.Parse(time.RFC3339, timeStr)
+		if err != nil {
+			return fmt.Errorf("field %s has invalid time format: %v", fieldPath, err)
+		}
+
+		v.Set(reflect.ValueOf(parsedTime))
+		return nil
+	}
+
+	val := reflect.ValueOf(value)
+	if val.Type() != v.Type() {
+		return fmt.Errorf("value type %s does not match field type %s", val.Type(), v.Type())
+	}
+
+	v.Set(val)
 	return nil
 }

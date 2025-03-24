@@ -11,6 +11,7 @@ import (
 	constants "github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mappers"
+	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
@@ -43,13 +44,8 @@ func NewPurchaseOrderService(logger logger.ILogger,
 	}
 }
 
-type CreatePurchaseOrderServiceResponse struct {
-	PurchaseOrderID     string
-	PurchaseOrderNumber string
-}
-
 // CreatePurchaseOrder creates a new purchase order with an incremental order number
-func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchaseOrderDTO *dto.CreatePurchaseOrderDTO) (*CreatePurchaseOrderServiceResponse, error) {
+func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchaseOrderDTO *dto.CreatePurchaseOrderDTO) (*dto.CreatePurchaseOrderResponse, error) {
 	// Fetch the last purchase order to determine the next order number
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Creating purchase order", "correlationID", correlationID)
@@ -106,6 +102,9 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 	purchaseOrder.OrderDate = time.Now()
 	purchaseOrder.UpdatedAt = time.Now()
 	purchaseOrder.ShippingStatus = "pending"
+	purchaseOrder.OrderStatus = "pending"
+
+	purchaseOrder.Products = []mongo.ObjectID{}
 
 	// validate the purchase order use validator v10
 	validator := validator.New()
@@ -115,6 +114,8 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 		return nil, err
 	}
 
+	purchaseOrder.ID = mongo.NewObjectID()
+
 	// Save the purchase order to the database
 	_, err = s.PurchaseOrderRepository.Create(ctx, &purchaseOrder)
 	if err != nil {
@@ -122,18 +123,19 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 		return nil, err
 	}
 
-	return &CreatePurchaseOrderServiceResponse{
-		PurchaseOrderID:     purchaseOrder.ID.Hex(),
-		PurchaseOrderNumber: purchaseOrder.PONumber,
+	return &dto.CreatePurchaseOrderResponse{
+		ID:       purchaseOrder.ID.Hex(),
+		PONumber: purchaseOrder.PONumber,
 	}, nil
 }
 
-func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber string, updates map[string]interface{}) error {
+// UpdatePurchaseOrder updates an existing purchase order
+func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poID string, updates map[string]interface{}) error {
 	// Fetch the purchase order
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Updating purchase order", "correlationID", correlationID)
 
-	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"poNumber": poNumber}, nil)
+	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"_id": poID}, nil)
 	if err != nil {
 		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
 		return err
@@ -141,12 +143,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 
 	// Update the fields
 	for fieldPath, value := range updates {
-		if !utils.IsAllowedField(fieldPath) {
-			s.Logger.Error("Field is not allowed to be updated", "correlationID", correlationID, "fieldPath", fieldPath)
-			return fmt.Errorf("field %s is not allowed to be updated", fieldPath)
-		}
-
-		err := utils.SetField(purchaseOrder, fieldPath, value)
+		err := utils.SetField(purchaseOrder, fieldPath, value, utils.AllowedFields)
 		if err != nil {
 			s.Logger.Error("Error setting field", "correlationID", correlationID, "fieldPath", fieldPath, "error", err)
 			return err
@@ -156,21 +153,6 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	// Update the updatedAt field
 	purchaseOrder.UpdatedAt = time.Now()
 
-	// Update order status based on product statuses
-	// err = s.updatePurchaseOrderStatus(ctx, purchaseOrder)
-	// if err != nil {
-	// 	s.Logger.Error("Error updating purchase order status", "correlationID", correlationID, "error", err)
-	// 	return err
-	// }
-
-	// // Update shipping status based on shipping marks
-	// err = s.updateShippingStatus(ctx, purchaseOrder)
-	// if err != nil {
-	// 	s.Logger.Error("Error updating shipping status", "correlationID", correlationID, "error", err)
-	// 	return err
-	// }
-
-	// validate the purchase order use validator v10
 	validator := validator.New()
 	err = validator.Struct(purchaseOrder)
 	if err != nil {
@@ -179,9 +161,184 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 	}
 
 	// Save the updated purchase order
-	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"poNumber": poNumber}, purchaseOrder)
+	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"_id": poID}, purchaseOrder)
 	if err != nil {
 		s.Logger.Error("Error updating purchase order in DB", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	s.Logger.Info("Successfully updated purchase order", "correlationID", correlationID)
+
+	return nil
+}
+
+func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber string, pageNumber int, fieldsPerPage int) ([]dto.ListPurchaseOrdersDTO, int64, error) {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Getting purchase orders", "correlationID", correlationID)
+
+	filter := map[string]interface{}{}
+	if poNumber != "" {
+		filter["poNumber"] = poNumber
+	}
+
+	// Ensure pageNumber is at least 1
+	if pageNumber < 1 {
+		pageNumber = 1
+	}
+
+	purchaseOrders, err := s.PurchaseOrderRepository.Find(ctx, filter, &mongo_models.FindOptions{
+		Limit: int64(fieldsPerPage),
+		Skip:  int64((pageNumber - 1) * fieldsPerPage),
+	})
+
+	if err != nil {
+		s.Logger.Error("Error fetching purchase orders", "correlationID", correlationID, "error", err)
+		return nil, 0, err
+	}
+
+	cnt, err := s.PurchaseOrderRepository.Count(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase orders count", "correlationID", correlationID, "error", err)
+		return nil, 0, err
+	}
+
+	var purchaseOrdersDTO []dto.ListPurchaseOrdersDTO
+
+	err = s.Mapper.Decode(purchaseOrders, &purchaseOrdersDTO)
+	if err != nil {
+		s.Logger.Error("Error decoding purchase orders", "correlationID", correlationID, "error", err)
+		return nil, 0, err
+	}
+
+	return purchaseOrdersDTO, cnt, nil
+}
+
+func (s *PurchaseOrderService) DeletePurchaseOrder(ctx context.Context, poID string) error {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Deleting purchase order", "correlationID", correlationID)
+
+	_, err := s.PurchaseOrderRepository.Delete(ctx, map[string]interface{}{"_id": poID})
+	if err != nil {
+		s.Logger.Error("Error deleting purchase order", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *PurchaseOrderService) GetPurchaseOrder(ctx context.Context, poID string) (*dto.PurchaseOrderDTO, error) {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Getting purchase order", "correlationID", correlationID)
+
+	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"_id": poID}, nil)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	var purchaseOrderDTO dto.PurchaseOrderDTO
+	err = s.Mapper.Decode(purchaseOrder, &purchaseOrderDTO)
+	if err != nil {
+		s.Logger.Error("Error mapping model to DTO", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	return &purchaseOrderDTO, nil
+}
+
+// AddProductToPurchaseOrder adds a product to an existing purchase order
+func (s *PurchaseOrderService) AddProductToPurchaseOrder(ctx context.Context, purchaseOrderID string, req *dto.CreatePurchaseOrderProductDTO) (*dto.CreatePurchaseOrderProductResponse, error) {
+	// Fetch the purchase order
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Adding product to purchase order", "correlationID", correlationID)
+
+	// Map the DTO to the model
+	var product models.PurchaseOrderProducts
+	err := s.Mapper.Decode(req, &product)
+	if err != nil {
+		s.Logger.Error("Error mapping DTO to model", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	// Fetch the purchase order
+	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"_id": purchaseOrderID}, nil)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	// Check if the product is already in the purchase order
+	for _, existingProduct := range purchaseOrder.Products {
+		if existingProduct.Hex() == product.ProductID {
+			s.Logger.Error("Product already exists in purchase order", "correlationID", correlationID, "productID", product.ProductID)
+			return nil, fmt.Errorf("product with ID %s already exists in purchase order %s", product.ProductID, purchaseOrderID)
+		}
+	}
+
+	// Add the product to the purchase order
+	product.ID = mongo.NewObjectID()
+	purchaseOrder.Products = append(purchaseOrder.Products, product.ID)
+
+	// Update the updatedAt field
+	purchaseOrder.UpdatedAt = time.Now()
+
+	// Save the updated purchase order
+	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"_id": purchaseOrderID}, purchaseOrder)
+	if err != nil {
+		s.Logger.Error("Error updating purchase order in DB", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	product.CreatedAt = time.Now()
+	product.UpdatedAt = time.Now()
+
+	// Save the product to the database
+	_, err = s.PurchaseOrderProductsRepository.Create(ctx, &product)
+	if err != nil {
+		s.Logger.Error("Error creating product in DB", "correlationID", correlationID, "error", err)
+		return nil, err
+	}
+
+	return &dto.CreatePurchaseOrderProductResponse{
+		ID: product.ID.Hex(),
+	}, nil
+}
+
+func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, productID string, updates map[string]interface{}) error {
+	// Fetch the product
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Updating purchase order product", "correlationID", correlationID)
+
+	product, err := s.PurchaseOrderProductsRepository.FindOne(ctx, map[string]interface{}{"_id": productID}, nil)
+	if err != nil {
+		s.Logger.Error("Error fetching product", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// Update the fields
+	for fieldPath, value := range updates {
+		err := utils.SetField(product, fieldPath, value, utils.AllowedProductFields)
+		if err != nil {
+			s.Logger.Error("Error setting field", "correlationID", correlationID, "fieldPath", fieldPath, "error", err)
+			return err
+		}
+	}
+
+	// Update the updatedAt field
+	product.UpdatedAt = time.Now()
+
+	// validate the purchase order use validator v10
+	validator := validator.New()
+	err = validator.Struct(product)
+	if err != nil {
+		s.Logger.Error("Error validating purchase order", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// Save the updated product
+	_, err = s.PurchaseOrderProductsRepository.Update(ctx, map[string]interface{}{"_id": productID}, product)
+	if err != nil {
+		s.Logger.Error("Error updating product in DB", "correlationID", correlationID, "error", err)
 		return err
 	}
 
@@ -258,52 +415,6 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poNumber
 
 // 	return nil
 // }
-
-func (s *PurchaseOrderService) GetPurchaseOrders(ctx context.Context, poNumber string, pageNumber int, fieldsPerPage int) ([]*models.PurchaseOrder, int64, error) {
-	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Getting purchase orders", "correlationID", correlationID)
-
-	filter := map[string]interface{}{}
-	if poNumber != "" {
-		filter["poNumber"] = poNumber
-	}
-
-	// Ensure pageNumber is at least 1
-	if pageNumber < 1 {
-		pageNumber = 1
-	}
-
-	purchaseOrders, err := s.PurchaseOrderRepository.Find(ctx, filter, &mongo_models.FindOptions{
-		Limit: int64(fieldsPerPage),
-		Skip:  int64((pageNumber - 1) * fieldsPerPage),
-	})
-
-	if err != nil {
-		s.Logger.Error("Error fetching purchase orders", "correlationID", correlationID, "error", err)
-		return nil, 0, err
-	}
-
-	cnt, err := s.PurchaseOrderRepository.Count(ctx, filter)
-	if err != nil {
-		s.Logger.Error("Error fetching purchase orders count", "correlationID", correlationID, "error", err)
-		return nil, 0, err
-	}
-
-	return purchaseOrders, cnt, nil
-}
-
-func (s *PurchaseOrderService) DeletePurchaseOrder(ctx context.Context, poNumber string) error {
-	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Deleting purchase order", "correlationID", correlationID)
-
-	_, err := s.PurchaseOrderRepository.Delete(ctx, map[string]interface{}{"poNumber": poNumber})
-	if err != nil {
-		s.Logger.Error("Error deleting purchase order", "correlationID", correlationID, "error", err)
-		return err
-	}
-
-	return nil
-}
 
 // func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, poNumber string, skuCode string) error {
 // 	correlationID := ctx.Value(constants.CorrelationID).(string)
