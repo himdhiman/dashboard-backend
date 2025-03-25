@@ -9,7 +9,6 @@ import (
 
 var AllowedFields = map[string]bool{
 	"OrderStatus":           true,
-	"TotalAmount":           true,
 	"TentativeDispatchDate": true,
 	"Remarks":               true,
 	"Deposits":              true,

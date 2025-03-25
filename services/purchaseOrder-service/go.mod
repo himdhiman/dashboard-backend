@@ -11,8 +11,8 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/logger v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mappers v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/services/products-service v0.0.0-20250227135410-83fbb743dc5f
-	github.com/mitchellh/mapstructure v1.5.0
 
 )
 
@@ -48,6 +48,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
@@ -90,5 +91,7 @@ replace github.com/himdhiman/dashboard-backend/services/products-service => ../p
 replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
 
 replace github.com/himdhiman/dashboard-backend/libs/mappers => ../../libs/mappers
+
+replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
 
 replace golang.org/x/net => golang.org/x/net v0.7.0

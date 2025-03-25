@@ -113,6 +113,8 @@ func (uc *ProductsController) SearchProduct(c *gin.Context) {
 		productMap := make(map[string]interface{})
 		for _, field := range request.Fields {
 			switch field {
+			case "id":
+				productMap["id"] = product.ID
 			case "name":
 				productMap["name"] = product.Name
 			case "sku":

@@ -18,7 +18,6 @@ func NewMapper() *Mapper {
 		decoderConfig: &mapstructure.DecoderConfig{
 			DecodeHook: mapstructure.ComposeDecodeHookFunc(
 				DecodeTimeHookFunc(), // Add time decoding support
-				DecodeObjectIDHookFunc(),
 			),
 			TagName: "json", // Default tag to use for mapping
 			Result:  nil,    // Result will be set during decoding
@@ -42,16 +41,13 @@ func (m *Mapper) Decode(input interface{}, output interface{}) error {
 }
 
 // DecodeWithCustomHook decodes a map into a struct with additional custom hooks.
-func (m *Mapper) DecodeWithCustomHook(input interface{}, output interface{}, customHook mapstructure.DecodeHookFunc) error {
+func (m *Mapper) DecodeWithCustomHook(input interface{}, output interface{}, customHooks ...mapstructure.DecodeHookFunc) error {
 	if reflect.ValueOf(output).Kind() != reflect.Ptr {
 		return errors.New("output must be a pointer to a struct")
 	}
 
-	m.decoderConfig.DecodeHook = mapstructure.ComposeDecodeHookFunc(
-		DecodeTimeHookFunc(), // Default time decoding
-		DecodeObjectIDHookFunc(),
-		customHook, // Add custom hook
-	)
+	// allHooks := append([]mapstructure.DecodeHookFunc{DecodeTimeHookFunc()}, customHooks...)
+	m.decoderConfig.DecodeHook = mapstructure.ComposeDecodeHookFunc(customHooks...)
 	m.decoderConfig.Result = output
 
 	decoder, err := mapstructure.NewDecoder(m.decoderConfig)

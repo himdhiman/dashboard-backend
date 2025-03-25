@@ -130,11 +130,6 @@ func (poc *PurchaseOrderController) ListPurchaseOrders(c *gin.Context) {
 		return
 	}
 
-	// purchaseOrders := make([]dto.ListPurchaseOrdersDTO, len(purchaseOrdersPtr))
-	// for i, p := range purchaseOrdersPtr {
-	// 	purchaseOrders[i] = *p
-	// }
-
 	response := struct {
 		PurchaseOrders []dto.ListPurchaseOrdersDTO `json:"purchaseOrders"`
 		Total          int                         `json:"total"`
@@ -238,6 +233,13 @@ func (poc *PurchaseOrderController) UpdatePurchaseOrderProduct(c *gin.Context) {
 
 	poc.Logger.Info("Updating purchase order product", "correlationID", correlationID)
 
+	poID := c.DefaultQuery("poID", "")
+	if poID == "" {
+		poc.Logger.Error("Missing purchase order ID", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order ID", nil)
+		return
+	}
+
 	productID := c.DefaultQuery("productID", "")
 	if productID == "" {
 		poc.Logger.Error("Missing product ID", "correlationID", correlationID)
@@ -253,7 +255,7 @@ func (poc *PurchaseOrderController) UpdatePurchaseOrderProduct(c *gin.Context) {
 		return
 	}
 
-	err = poc.Service.UpdatePurchaseOrderProduct(ctx, productID, updates)
+	err = poc.Service.UpdatePurchaseOrderProduct(ctx, poID, productID, updates)
 	if err != nil {
 		poc.Logger.Error("Error updating purchase order product", "error", err, "correlationID", correlationID)
 		poc.respondWithError(c, http.StatusBadRequest, "Failed to update purchase order product", err.Error())
@@ -264,36 +266,28 @@ func (poc *PurchaseOrderController) UpdatePurchaseOrderProduct(c *gin.Context) {
 	poc.respondWithSuccess(c, http.StatusOK, "Purchase order product updated successfully", nil)
 }
 
-// func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
-// 	ctx := c.Request.Context()
-// 	correlationID := c.GetHeader(string(constants.CorrelationID))
-// 	if correlationID == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
-// 		return
-// 	}
-// 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
+	ctx := c.Request.Context()
 
-// 	poNumber := c.Query("poNumber")
-// 	if poNumber == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing purchase order number"})
-// 		return
-// 	}
+	poc.Logger.Info("Deleting purchase order product", "correlationID", correlationID)
 
-// 	skuCode := c.Query("skuCode")
-// 	if skuCode == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing SKU code"})
-// 		return
-// 	}
+	productID := c.DefaultQuery("productID", "")
+	if productID == "" {
+		poc.Logger.Error("Missing product ID", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing product ID", nil)
+		return
+	}
 
-// 	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, poNumber, skuCode)
-// 	if err != nil {
-// 		poc.Logger.Error("Error deleting product from purchase order", "error", err, "correlationID", correlationID)
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product from purchase order" + err.Error()})
-// 		return
-// 	}
+	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, productID)
+	if err != nil {
+		poc.Logger.Error("Error deleting product from purchase order", "error", err, "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Failed to delete product from purchase order", err.Error())
+		return
+	}
 
-// 	c.JSON(http.StatusOK, gin.H{"message": "Product deleted from purchase order successfully"})
-// }
+	poc.respondWithSuccess(c, http.StatusOK, "Product deleted from purchase order successfully", nil)
+}
 
 // Helper function to get the correlation ID from the request
 

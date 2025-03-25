@@ -16,6 +16,10 @@ func DecodeTimeHookFunc() mapstructure.DecodeHookFuncType {
 		t reflect.Type,
 		data interface{},
 	) (interface{}, error) {
+		if f == reflect.TypeOf(time.Time{}) && t == reflect.TypeOf(time.Time{}) {
+			return data, nil
+		}
+
 		if t != reflect.TypeOf(time.Time{}) {
 			return data, nil
 		}
@@ -35,6 +39,48 @@ func DecodeTimeHookFunc() mapstructure.DecodeHookFuncType {
 		}
 	}
 }
+
+func EncodeTimeToStringHookFunc() mapstructure.DecodeHookFuncType {
+	return func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+		// Handle empty maps that sometimes appear instead of time.Time
+		if f.Kind() == reflect.Map && f.Key().Kind() == reflect.String {
+			m, ok := data.(map[string]interface{})
+			if ok && len(m) == 0 {
+				// Return a default value – here, we use the zero time formatted
+				return time.Time{}.Format(time.RFC3339), nil
+			}
+		}
+
+		// Handle pointers to time.Time by dereferencing them
+		if f.Kind() == reflect.Ptr && f.Elem() == reflect.TypeOf(time.Time{}) {
+			val := reflect.ValueOf(data)
+			if val.IsNil() {
+				return "", nil
+			}
+			// Dereference and update the source type
+			data = val.Elem().Interface()
+			f = reflect.TypeOf(data)
+		}
+
+		// If the source is not a time.Time, skip conversion
+		if f != reflect.TypeOf(time.Time{}) {
+			return data, nil
+		}
+
+		// Ensure target type is string
+		if t != reflect.TypeOf("") {
+			return data, nil
+		}
+
+		// Perform the conversion
+		timeValue, ok := data.(time.Time)
+		if !ok {
+			return nil, fmt.Errorf("expected time.Time but got %T", data)
+		}
+		return timeValue.Format(time.RFC3339), nil
+	}
+}
+
 
 // DecodeObjectIDHookFunc is a hook function to decode mongo.ObjectID into a string.
 func DecodeObjectIDHookFunc() mapstructure.DecodeHookFuncType {

@@ -45,7 +45,7 @@ func NewProductsService(apiClient *conflux_client.ConfluxAPIClient, sheetService
 
 func (s *ProductsService) IsValidVendor(ctx context.Context, vendorID string) (bool, error) {
 	if vendorID == "" {
-		return false, errors.New("Vendor ID cannot be empty")
+		return false, errors.New("vendor ID cannot be empty")
 	}
 
 	filter := map[string]interface{}{
@@ -64,13 +64,34 @@ func (s *ProductsService) IsValidVendor(ctx context.Context, vendorID string) (b
 	return true, nil
 }
 
+func (s *ProductsService) GetProductByID(ctx context.Context, productID string) (*models.Product, error) {
+	if productID == "" {
+		return nil, errors.New("product ID cannot be empty")
+	}
+
+	filter := map[string]interface{}{
+		"_id": productID,
+	}
+	products, err := s.ProductsRepository.Find(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching products", "error", err)
+		return nil, err
+	}
+
+	if len(products) == 0 {
+		return nil, nil
+	}
+
+	return products[0], nil
+}
+
 func (s *ProductsService) GetProductIDBySKUVendor(ctx context.Context, skuCode string, vendorID string) (string, error) {
 	if skuCode == "" {
 		return "", errors.New("SKU code cannot be empty")
 	}
 
 	if vendorID == "" {
-		return "", errors.New("Vendor ID cannot be empty")
+		return "", errors.New("vendor ID cannot be empty")
 	}
 
 	filter := map[string]interface{}{

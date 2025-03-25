@@ -63,7 +63,7 @@ func (m *MongoClient) connect(ctx context.Context, uri string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(uri).SetMaxPoolSize(200)
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		m.Logger.Error("Failed to connect to MongoDB", "error", err)

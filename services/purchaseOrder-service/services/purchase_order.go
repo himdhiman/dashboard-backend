@@ -15,6 +15,7 @@ import (
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
+	"github.com/himdhiman/dashboard-backend/libs/task"
 	product_services "github.com/himdhiman/dashboard-backend/services/products-service/services"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
@@ -24,6 +25,7 @@ import (
 type PurchaseOrderService struct {
 	Logger                          logger.ILogger
 	Mapper                          *mappers.Mapper
+	TaskManager                     *task.TaskManager
 	PurchaseOrderRepository         *repository.Repository[models.PurchaseOrder]
 	PurchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts]
 	ProductsService                 product_services.ProductsService
@@ -31,6 +33,7 @@ type PurchaseOrderService struct {
 
 func NewPurchaseOrderService(logger logger.ILogger,
 	mapper *mappers.Mapper,
+	taskManager *task.TaskManager,
 	purchaseOrderRepository *repository.Repository[models.PurchaseOrder],
 	purchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts],
 	productsService product_services.ProductsService) *PurchaseOrderService {
@@ -38,6 +41,7 @@ func NewPurchaseOrderService(logger logger.ILogger,
 	return &PurchaseOrderService{
 		Logger:                          logger,
 		Mapper:                          mapper,
+		TaskManager:                     taskManager,
 		PurchaseOrderRepository:         purchaseOrderRepository,
 		PurchaseOrderProductsRepository: purchaseOrderProductsRepository,
 		ProductsService:                 productsService,
@@ -204,7 +208,7 @@ func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber 
 
 	var purchaseOrdersDTO []dto.ListPurchaseOrdersDTO
 
-	err = s.Mapper.Decode(purchaseOrders, &purchaseOrdersDTO)
+	err = s.Mapper.DecodeWithCustomHook(purchaseOrders, &purchaseOrdersDTO, mappers.DecodeObjectIDHookFunc())
 	if err != nil {
 		s.Logger.Error("Error decoding purchase orders", "correlationID", correlationID, "error", err)
 		return nil, 0, err
@@ -217,7 +221,23 @@ func (s *PurchaseOrderService) DeletePurchaseOrder(ctx context.Context, poID str
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Deleting purchase order", "correlationID", correlationID)
 
-	_, err := s.PurchaseOrderRepository.Delete(ctx, map[string]interface{}{"_id": poID})
+	// Fetch the purchase order
+	po, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"_id": poID}, nil)
+	if err != nil {
+		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// delete all the associated PO Products
+	for _, productID := range po.Products {
+		_, err = s.PurchaseOrderProductsRepository.Delete(ctx, map[string]interface{}{"_id": productID.Hex()})
+		if err != nil {
+			s.Logger.Error("Error deleting purchase order product", "correlationID", correlationID, "error", err)
+			return err
+		}
+	}
+
+	_, err = s.PurchaseOrderRepository.Delete(ctx, map[string]interface{}{"_id": poID})
 	if err != nil {
 		s.Logger.Error("Error deleting purchase order", "correlationID", correlationID, "error", err)
 		return err
@@ -237,11 +257,47 @@ func (s *PurchaseOrderService) GetPurchaseOrder(ctx context.Context, poID string
 	}
 
 	var purchaseOrderDTO dto.PurchaseOrderDTO
-	err = s.Mapper.Decode(purchaseOrder, &purchaseOrderDTO)
+	err = s.Mapper.DecodeWithCustomHook(purchaseOrder, &purchaseOrderDTO, mappers.DecodeObjectIDHookFunc(), mappers.EncodeTimeToStringHookFunc())
 	if err != nil {
 		s.Logger.Error("Error mapping model to DTO", "correlationID", correlationID, "error", err)
 		return nil, err
 	}
+
+	// Manually convert time.Time fields to string
+	purchaseOrderDTO.OrderDate = purchaseOrder.OrderDate.Format(time.RFC3339)
+	purchaseOrderDTO.TentativeDispatchDate = purchaseOrder.TentativeDispatchDate.Format(time.RFC3339)
+
+	// Fetch the products associated with the purchase order, need to do for loop over the products and fetch them
+	var purchaseOrderProducts []dto.PurchaseOrderProductDTO
+	for _, productID := range purchaseOrder.Products {
+		purchaseOrderProduct, err := s.PurchaseOrderProductsRepository.FindOne(ctx, map[string]interface{}{"_id": productID.Hex()}, nil)
+		if err != nil {
+			s.Logger.Error("Error fetching purchase order product", "correlationID", correlationID, "error", err)
+			return nil, err
+		}
+		var purchaseOrderProductDTO dto.PurchaseOrderProductDTO
+		err = s.Mapper.DecodeWithCustomHook(purchaseOrderProduct, &purchaseOrderProductDTO, mappers.DecodeObjectIDHookFunc(), mappers.EncodeTimeToStringHookFunc())
+		if err != nil {
+			s.Logger.Error("Error mapping model to DTO", "correlationID", correlationID, "error", err)
+			return nil, err
+		}
+
+		product, err := s.ProductsService.GetProductByID(ctx, purchaseOrderProduct.ProductID)
+		if err != nil {
+			s.Logger.Error("Error fetching product", "correlationID", correlationID, "error", err)
+			return nil, err
+		}
+
+		purchaseOrderProductDTO.SKUCode = product.SKUCode
+		purchaseOrderProductDTO.ImageURL = product.ImageURL
+
+		// Manually convert time.Time fields to string
+		purchaseOrderProductDTO.OrderDate = purchaseOrderProduct.OrderDate.Format(time.RFC3339)
+
+		purchaseOrderProducts = append(purchaseOrderProducts, purchaseOrderProductDTO)
+	}
+
+	purchaseOrderDTO.Products = purchaseOrderProducts
 
 	return &purchaseOrderDTO, nil
 }
@@ -304,7 +360,7 @@ func (s *PurchaseOrderService) AddProductToPurchaseOrder(ctx context.Context, pu
 	}, nil
 }
 
-func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, productID string, updates map[string]interface{}) error {
+func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, poID, productID string, updates map[string]interface{}) error {
 	// Fetch the product
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Updating purchase order product", "correlationID", correlationID)
@@ -342,117 +398,213 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, p
 		return err
 	}
 
+	// Check if the updates have the "status" field, spawn a task to update the purchase order status
+	if _, ok := updates["Status"]; ok {
+		taskParams := map[string]interface{}{
+			"purchaseOrderID": poID,
+			"field":           "status",
+		}
+
+		_, err := s.spawnUpdateTask(ctx, "UpdatePurchaseOrderStatus", taskParams)
+		if err != nil {
+			s.Logger.Error("Error spawning task to update purchase order status", "correlationID", correlationID, "error", err)
+			return err
+		}
+	}
+
+	// Check if the updates have the "shippingMark" field, spawn a task to update the purchase order shipping status
+	if _, ok := updates["ShippingMark"]; ok {
+		taskParams := map[string]interface{}{
+			"purchaseOrderID": poID,
+			"field":           "shippingMark",
+		}
+
+		_, err := s.spawnUpdateTask(ctx, "UpdatePurchaseOrderShippingStatus", taskParams)
+		if err != nil {
+			s.Logger.Error("Error spawning task to update purchase order shipping status", "correlationID", correlationID, "error", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
-// func (s *PurchaseOrderService) updatePurchaseOrderStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
-// 	correlationID := ctx.Value(constants.CorrelationID).(string)
-// 	s.Logger.Info("Updating purchase order status", "correlationID", correlationID)
+func (s *PurchaseOrderService) spawnUpdateTask(ctx context.Context, taskType string, params map[string]interface{}) (string, error) {
+	// Create a new context with a longer timeout
+	taskCtx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 
-// 	// Initialize counters for SKU statuses
-// 	finalCount := 0
-// 	pendingCount := 0
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Spawning background task", "correlationID", correlationID, "taskType", taskType)
 
-// 	// Count the number of SKUs with each status
-// 	for _, sku := range purchaseOrder.Products {
-// 		if sku.Status == "finalized" {
-// 			finalCount++
-// 		} else if sku.Status == "pending" {
-// 			pendingCount++
-// 		}
-// 	}
+	// Use taskCtx for MongoDB operations
+	taskID, err := s.TaskManager.RunTask(taskType, params, func(params map[string]interface{}) (interface{}, error) {
+		purchaseOrderID, ok := params["purchaseOrderID"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid purchaseOrderID in task params")
+		}
 
-// 	totalSkus := len(purchaseOrder.Products)
+		field, ok := params["field"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid field in task params")
+		}
 
-// 	// Determine overall PO status based on SKU statuses
-// 	var newStatus string
-// 	if finalCount == totalSkus {
-// 		newStatus = "finalized"
-// 	} else if pendingCount == totalSkus {
-// 		newStatus = "pending"
-// 	} else {
-// 		newStatus = "partially_pending"
-// 	}
+		// Fetch the purchase order using the new context
+		purchaseOrder, err := s.PurchaseOrderRepository.FindOne(taskCtx, map[string]interface{}{"_id": purchaseOrderID}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching purchase order: %v", err)
+		}
 
-// 	// Update the PO status if it has changed
-// 	if purchaseOrder.OrderStatus != newStatus {
-// 		purchaseOrder.OrderStatus = newStatus
-// 	}
+		// Update the purchase order status or shipping status
+		if field == "status" {
+			err = s.updatePurchaseOrderStatus(taskCtx, purchaseOrder)
+		} else if field == "shippingMark" {
+			err = s.updateShippingStatus(taskCtx, purchaseOrder)
+		}
 
-// 	return nil
-// }
+		if err != nil {
+			return nil, fmt.Errorf("error updating purchase order: %v", err)
+		}
 
-// func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
-// 	correlationID := ctx.Value(constants.CorrelationID).(string)
-// 	s.Logger.Info("Updating purchase order shipping status", "correlationID", correlationID)
+		return "Task completed successfully", nil
+	})
 
-// 	// Initialize counters for shipping mark status
-// 	totalSkus := len(purchaseOrder.Products)
-// 	skusWithShippingMark := 0
+	if err != nil {
+		s.Logger.Error("Error spawning task", "correlationID", correlationID, "taskType", taskType, "error", err)
+		return "", err
+	}
 
-// 	// Count SKUs with shipping marks
-// 	for _, product := range purchaseOrder.Products {
-// 		if product.ShippingMark != "" {
-// 			skusWithShippingMark++
-// 		}
-// 	}
+	s.Logger.Info("Task spawned successfully", "correlationID", correlationID, "taskID", taskID)
+	return taskID, nil
+}
 
-// 	// Determine shipping status based on shipping marks
-// 	var newStatus string
-// 	if skusWithShippingMark == 0 {
-// 		newStatus = "pending"
-// 	} else if skusWithShippingMark == totalSkus {
-// 		newStatus = "complete"
-// 	} else {
-// 		newStatus = "partly_shipped"
-// 	}
+func (s *PurchaseOrderService) updatePurchaseOrderStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+	correlationID, ok := ctx.Value(constants.CorrelationID).(string)
+	if !ok {
+		correlationID = "unknown"
+	}
+	s.Logger.Info("Updating purchase order status", "correlationID", correlationID)
 
-// 	// Update the shipping status if it has changed
-// 	if purchaseOrder.ShippingStatus != newStatus {
-// 		purchaseOrder.ShippingStatus = newStatus
-// 		purchaseOrder.UpdatedAt = time.Now()
-// 	}
+	// Initialize counters for SKU statuses
+	finalCount := 0
+	pendingCount := 0
 
-// 	return nil
-// }
+	options := &mongo_models.FindOptions{
+		Projection: map[string]interface{}{"_id": 1, "status": 1}, // Fetch only required fields
+	}
 
-// func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, poNumber string, skuCode string) error {
-// 	correlationID := ctx.Value(constants.CorrelationID).(string)
-// 	s.Logger.Info("Deleting product from purchase order", "correlationID", correlationID)
+	// Count the number of SKUs with each status
+	for _, productID := range purchaseOrder.Products {
+		product, err := s.PurchaseOrderProductsRepository.FindOne(ctx, map[string]interface{}{"_id": productID.Hex()}, options)
+		if err != nil {
+			return err
+		}
+		if product.Status == "finalized" {
+			finalCount++
+		} else if product.Status == "pending" {
+			pendingCount++
+		}
+	}
 
-// 	// Fetch the purchase order
-// 	purchaseOrder, err := s.PurchaseOrderRepository.FindOne(ctx, map[string]interface{}{"poNumber": poNumber}, nil)
-// 	if err != nil {
-// 		s.Logger.Error("Error fetching purchase order", "correlationID", correlationID, "error", err)
-// 		return err
-// 	}
+	totalSkus := len(purchaseOrder.Products)
 
-// 	// Find the product in the purchase order
-// 	productIndex := -1
-// 	for i, product := range purchaseOrder.Products {
-// 		if product.SkuCode == skuCode {
-// 			productIndex = i
-// 			break
-// 		}
-// 	}
+	// Determine overall PO status based on SKU statuses
+	var newStatus string
+	if finalCount == totalSkus {
+		newStatus = "finalized"
+	} else if pendingCount == totalSkus {
+		newStatus = "pending"
+	} else {
+		newStatus = "partially_pending"
+	}
 
-// 	if productIndex == -1 {
-// 		s.Logger.Error("Product not found in purchase order", "correlationID", correlationID, "skuCode", skuCode)
-// 		return fmt.Errorf("product with SKU %s not found in purchase order %s", skuCode, poNumber)
-// 	}
+	// Update the PO status if it has changed
+	if purchaseOrder.OrderStatus != newStatus {
+		purchaseOrder.OrderStatus = newStatus
+	}
 
-// 	// Remove the product from the purchase order
-// 	purchaseOrder.Products = append(purchaseOrder.Products[:productIndex], purchaseOrder.Products[productIndex+1:]...)
+	// validate the purchase order use validator v10
+	validator := validator.New()
+	err := validator.Struct(purchaseOrder)
+	if err != nil {
+		return err
+	}
 
-// 	// Update the updatedAt field
-// 	purchaseOrder.UpdatedAt = time.Now()
+	// save the purchase order
+	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"_id": purchaseOrder.ID.Hex()}, purchaseOrder)
+	if err != nil {
+		return err
+	}
 
-// 	// Save the updated purchase order
-// 	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"poNumber": poNumber}, purchaseOrder)
-// 	if err != nil {
-// 		s.Logger.Error("Error updating purchase order in DB", "correlationID", correlationID, "error", err)
-// 		return err
-// 	}
+	return nil
+}
 
-// 	return nil
-// }
+func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchaseOrder *models.PurchaseOrder) error {
+	correlationID, ok := ctx.Value(constants.CorrelationID).(string)
+	if !ok {
+		correlationID = "unknown"
+	}
+	s.Logger.Info("Updating purchase order shipping status", "correlationID", correlationID)
+
+	// Initialize counters for shipping mark status
+	totalSkus := len(purchaseOrder.Products)
+	skusWithShippingMark := 0
+
+	options := &mongo_models.FindOptions{
+		Projection: map[string]interface{}{"_id": 1, "shippingMark": 1}, // Fetch only required fields
+	}
+
+	// Count SKUs with shipping marks
+	for _, productID := range purchaseOrder.Products {
+		product, err := s.PurchaseOrderProductsRepository.FindOne(ctx, map[string]interface{}{"_id": productID.Hex()}, options)
+		if err != nil {
+			return err
+		}
+		if product.ShippingMark != "" {
+			skusWithShippingMark++
+		}
+	}
+
+	// Determine shipping status based on shipping marks
+	var newStatus string
+	if skusWithShippingMark == 0 {
+		newStatus = "pending"
+	} else if skusWithShippingMark == totalSkus {
+		newStatus = "complete"
+	} else {
+		newStatus = "partly_shipped"
+	}
+
+	// Update the shipping status if it has changed
+	if purchaseOrder.ShippingStatus != newStatus {
+		purchaseOrder.ShippingStatus = newStatus
+		purchaseOrder.UpdatedAt = time.Now()
+	}
+
+	// validate the purchase order use validator v10
+	validate := validator.New()
+	err := validate.Struct(purchaseOrder)
+	if err != nil {
+		return err
+	}
+
+	// save the purchase order
+	_, err = s.PurchaseOrderRepository.Update(ctx, map[string]interface{}{"_id": purchaseOrder.ID.Hex()}, purchaseOrder)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, productID string) error {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Deleting product from purchase order", "correlationID", correlationID)
+
+	_, err := s.PurchaseOrderProductsRepository.Delete(ctx, map[string]interface{}{"_id": productID})
+	if err != nil {
+		s.Logger.Error("Error deleting product from purchase order", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	return nil
+}

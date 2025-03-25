@@ -92,7 +92,7 @@ func main() {
 	}
 
 	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{}
-	_, err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient, *productsServices.ProductsService)
+	_, err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient, taskManager, *productsServices.ProductsService)
 	if err != nil {
 		logger.Fatal("Failed to initialize purchase order service", "error", err)
 	}
