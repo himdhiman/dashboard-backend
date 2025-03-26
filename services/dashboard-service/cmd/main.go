@@ -16,6 +16,9 @@ import (
 	products "github.com/himdhiman/dashboard-backend/services/products-service/cmd"
 	products_config "github.com/himdhiman/dashboard-backend/services/products-service/config"
 	purchaseOrder "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/cmd"
+	shipping "github.com/himdhiman/dashboard-backend/services/shipping-service/cmd"
+	shipping_config "github.com/himdhiman/dashboard-backend/services/shipping-service/config"
+
 	purchaseOrder_config "github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/config"
 )
 
@@ -91,8 +94,20 @@ func main() {
 		logger.Fatal("Failed to initialize products service", "error", err)
 	}
 
-	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{}
-	_, err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient, taskManager, *productsServices.ProductsService)
+	shippingServiceConfig := shipping_config.ShippingServiceConfig{
+		ProductService: productsServices.ProductsService,
+	}
+
+	shippingServices, err := shipping.InitializeShippingService(router, ctx, &shippingServiceConfig, logger, mongoClient, taskManager)
+	if err != nil {
+		logger.Fatal("Failed to initialize shipping service", "error", err)
+	}
+
+	purchaseOrderServiceConfig := purchaseOrder_config.PurchaseOrderServiceConfig{
+		ProductService:  productsServices.ProductsService,
+		ShippingService: shippingServices.ShippingService,
+	}
+	_, err = purchaseOrder.InitializePurchaseOrderService(router, ctx, &purchaseOrderServiceConfig, logger, mongoClient, taskManager)
 	if err != nil {
 		logger.Fatal("Failed to initialize purchase order service", "error", err)
 	}

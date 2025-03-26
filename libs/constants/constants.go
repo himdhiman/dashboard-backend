@@ -39,6 +39,8 @@ const (
 	TaskCollection                 = "DashboardTasks"
 	PurchaseOrderCollection        = "PurchaseOrders"
 	PurchaseOrderProductCollection = "PurchaseOrderProducts"
+	ShippingMarkCollection         = "ShippingMarks"
+	ShippingProviderCollection     = "ShippingProviders"
 )
 
 type APIResponse struct {

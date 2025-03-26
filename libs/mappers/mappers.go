@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/go-playground/validator"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -23,6 +24,11 @@ func NewMapper() *Mapper {
 			Result:  nil,    // Result will be set during decoding
 		},
 	}
+}
+
+// CReate a getvalidator function which will return a v10 validator
+func (m *Mapper) GetValidator() *validator.Validate {
+	return validator.New()
 }
 
 // Decode decodes a map into a given struct or object.

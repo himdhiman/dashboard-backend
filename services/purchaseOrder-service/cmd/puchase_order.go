@@ -10,7 +10,6 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	"github.com/himdhiman/dashboard-backend/libs/task"
-	product_services "github.com/himdhiman/dashboard-backend/services/products-service/services"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/config"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/routes"
@@ -21,7 +20,7 @@ type PurchaseOrderServices struct {
 	PurchaseOrderService *services.PurchaseOrderService
 }
 
-func InitializePurchaseOrderService(router *gin.Engine, ctx context.Context, config *config.PurchaseOrderServiceConfig, logger logger.ILogger, mongoClient mongo.IMongoClient, taskManager *task.TaskManager, productsService product_services.ProductsService) (*PurchaseOrderServices, error) {
+func InitializePurchaseOrderService(router *gin.Engine, ctx context.Context, config *config.PurchaseOrderServiceConfig, logger logger.ILogger, mongoClient mongo.IMongoClient, taskManager *task.TaskManager) (*PurchaseOrderServices, error) {
 
 	purchaseOrderCollection, err := mongoClient.GetCollection(context.Background(), constants.PurchaseOrderCollection)
 	if err != nil {
@@ -41,7 +40,7 @@ func InitializePurchaseOrderService(router *gin.Engine, ctx context.Context, con
 
 	mapper := mappers.NewMapper()
 
-	purchaseOrderService := services.NewPurchaseOrderService(logger, mapper, taskManager, &purchaseOrderRepo, &purchaseOrderProductsRepo, productsService)
+	purchaseOrderService := services.NewPurchaseOrderService(logger, mapper, taskManager, &purchaseOrderRepo, &purchaseOrderProductsRepo, *config.ProductService, *config.ShippingService)
 
 	routes.AddPurchaseOrderRoutes(router, logger, &routes.PurchaseOrderService{
 		PurchaseOrderService: purchaseOrderService,

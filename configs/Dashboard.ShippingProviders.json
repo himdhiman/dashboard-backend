@@ -1,0 +1,36 @@
+[{
+  "_id": {
+    "$oid": "67e3b115b0fdcf682318fff4"
+  },
+  "vendorName": "IFC",
+  "weightPerKg": 1000,
+  "paymentTerms": "45 days",
+  "deliveryTAT": "10 days"
+},
+{
+  "_id": {
+    "$oid": "67e3b142b0fdcf682318fff5"
+  },
+  "vendorName": "K5",
+  "weightPerKg": 950,
+  "paymentTerms": "60 days",
+  "deliveryTAT": "7 days"
+},
+{
+  "_id": {
+    "$oid": "67e3b14cb0fdcf682318fff6"
+  },
+  "vendorName": "RMS",
+  "weightPerKg": 850,
+  "paymentTerms": "0 days",
+  "deliveryTAT": "7 days"
+},
+{
+  "_id": {
+    "$oid": "67e3b15cb0fdcf682318fff7"
+  },
+  "vendorName": "DHL",
+  "weightPerKg": 1100,
+  "paymentTerms": "0 days",
+  "deliveryTAT": "10 days"
+}]

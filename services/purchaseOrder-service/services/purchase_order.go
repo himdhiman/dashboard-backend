@@ -20,6 +20,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/models"
 	"github.com/himdhiman/dashboard-backend/services/purchaseOrder-service/utils"
+	shipping_services "github.com/himdhiman/dashboard-backend/services/shipping-service/services"
 )
 
 type PurchaseOrderService struct {
@@ -29,6 +30,7 @@ type PurchaseOrderService struct {
 	PurchaseOrderRepository         *repository.Repository[models.PurchaseOrder]
 	PurchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts]
 	ProductsService                 product_services.ProductsService
+	ShippingService                 shipping_services.ShippingService
 }
 
 func NewPurchaseOrderService(logger logger.ILogger,
@@ -36,7 +38,8 @@ func NewPurchaseOrderService(logger logger.ILogger,
 	taskManager *task.TaskManager,
 	purchaseOrderRepository *repository.Repository[models.PurchaseOrder],
 	purchaseOrderProductsRepository *repository.Repository[models.PurchaseOrderProducts],
-	productsService product_services.ProductsService) *PurchaseOrderService {
+	productsService product_services.ProductsService,
+	shippingService shipping_services.ShippingService) *PurchaseOrderService {
 
 	return &PurchaseOrderService{
 		Logger:                          logger,
@@ -45,6 +48,7 @@ func NewPurchaseOrderService(logger logger.ILogger,
 		PurchaseOrderRepository:         purchaseOrderRepository,
 		PurchaseOrderProductsRepository: purchaseOrderProductsRepository,
 		ProductsService:                 productsService,
+		ShippingService:                 shippingService,
 	}
 }
 
@@ -147,7 +151,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poID str
 
 	// Update the fields
 	for fieldPath, value := range updates {
-		err := utils.SetField(purchaseOrder, fieldPath, value, utils.AllowedFields)
+		err := constants.SetField(purchaseOrder, fieldPath, value, utils.AllowedFields)
 		if err != nil {
 			s.Logger.Error("Error setting field", "correlationID", correlationID, "fieldPath", fieldPath, "error", err)
 			return err
@@ -176,7 +180,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrder(ctx context.Context, poID str
 	return nil
 }
 
-func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber string, pageNumber int, fieldsPerPage int) ([]dto.ListPurchaseOrdersDTO, int64, error) {
+func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber string, pageNumber, fieldsPerPage int) ([]dto.ListPurchaseOrdersDTO, int64, error) {
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Getting purchase orders", "correlationID", correlationID)
 
@@ -194,7 +198,6 @@ func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber 
 		Limit: int64(fieldsPerPage),
 		Skip:  int64((pageNumber - 1) * fieldsPerPage),
 	})
-
 	if err != nil {
 		s.Logger.Error("Error fetching purchase orders", "correlationID", correlationID, "error", err)
 		return nil, 0, err
@@ -373,7 +376,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, p
 
 	// Update the fields
 	for fieldPath, value := range updates {
-		err := utils.SetField(product, fieldPath, value, utils.AllowedProductFields)
+		err := constants.SetField(product, fieldPath, value, utils.AllowedProductFields)
 		if err != nil {
 			s.Logger.Error("Error setting field", "correlationID", correlationID, "fieldPath", fieldPath, "error", err)
 			return err
@@ -424,6 +427,14 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderProduct(ctx context.Context, p
 			s.Logger.Error("Error spawning task to update purchase order shipping status", "correlationID", correlationID, "error", err)
 			return err
 		}
+
+		id, err := s.ShippingService.CreateShippingMark(ctx, product.ShippingMark)
+		if err != nil {
+			s.Logger.Error("Error creating shipping mark", "correlationID", correlationID, "error", err)
+			return err
+		}
+
+		s.Logger.Info("Shipping mark created successfully", "correlationID", correlationID, "id", id)
 	}
 
 	return nil

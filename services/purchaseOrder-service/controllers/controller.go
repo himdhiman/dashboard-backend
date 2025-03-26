@@ -67,8 +67,8 @@ func (poc *PurchaseOrderController) CreatePurchaseOrder(c *gin.Context) {
 }
 
 func (poc *PurchaseOrderController) UpdatePurchaseOrder(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
 	ctx := c.Request.Context()
-	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	poNumber := c.DefaultQuery("poID", "")
 	if poNumber == "" {
@@ -96,8 +96,8 @@ func (poc *PurchaseOrderController) UpdatePurchaseOrder(c *gin.Context) {
 }
 
 func (poc *PurchaseOrderController) ListPurchaseOrders(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
 	ctx := c.Request.Context()
-	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	// Parse query parameters
 	pageNumberStr := c.DefaultQuery("page", "1")
@@ -146,8 +146,8 @@ func (poc *PurchaseOrderController) ListPurchaseOrders(c *gin.Context) {
 }
 
 func (poc *PurchaseOrderController) GetPurchaseOrder(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
 	ctx := c.Request.Context()
-	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	poID := c.DefaultQuery("poID", "")
 	if poID == "" {
@@ -167,8 +167,8 @@ func (poc *PurchaseOrderController) GetPurchaseOrder(c *gin.Context) {
 }
 
 func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
 	ctx := c.Request.Context()
-	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	poID := c.DefaultQuery("poID", "")
 	if poID == "" {
@@ -189,8 +189,8 @@ func (poc *PurchaseOrderController) DeletePurchaseOrder(c *gin.Context) {
 }
 
 func (poc *PurchaseOrderController) CreatePurchaseOrderProduct(c *gin.Context) {
+	correlationID := poc.getCorrelationID(c)
 	ctx := c.Request.Context()
-	correlationID := ctx.Value(constants.CorrelationID).(string)
 
 	poc.Logger.Info("Creating purchase order product", "correlationID", correlationID)
 

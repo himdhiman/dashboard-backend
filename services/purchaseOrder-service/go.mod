@@ -13,6 +13,8 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/mongo v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/services/products-service v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/services/shipping-service v0.0.0-20250227135410-83fbb743dc5f
+
 
 )
 
@@ -87,6 +89,8 @@ replace github.com/himdhiman/dashboard-backend/libs/mongo => ../../libs/mongo
 replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants
 
 replace github.com/himdhiman/dashboard-backend/services/products-service => ../products-service
+
+replace github.com/himdhiman/dashboard-backend/services/shipping-service => ../shipping-service
 
 replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflux
 

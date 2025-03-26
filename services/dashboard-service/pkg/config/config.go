@@ -80,8 +80,6 @@ func (c *ProjectConfig) validate() error {
 	for name, value := range required {
 		if value == "" {
 			return fmt.Errorf("required configuration %s is not set", name)
-		} else {
-			fmt.Printf("Configuration %s: %s\n", name, value)
 		}
 	}
 

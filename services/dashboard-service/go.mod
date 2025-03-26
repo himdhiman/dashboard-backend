@@ -14,6 +14,8 @@ require (
 	github.com/himdhiman/dashboard-backend/libs/task v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/services/products-service v0.0.0-20250227135410-83fbb743dc5f
 	github.com/himdhiman/dashboard-backend/services/purchaseOrder-service v0.0.0-20250227135410-83fbb743dc5f
+	github.com/himdhiman/dashboard-backend/services/shipping-service v0.0.0-20250227135410-83fbb743dc5f
+
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/oauth2 v0.26.0
 )
@@ -86,6 +88,8 @@ replace github.com/himdhiman/dashboard-backend/services/purchaseOrder-service =>
 
 replace github.com/himdhiman/dashboard-backend/services/products-service => ../products-service
 
+replace github.com/himdhiman/dashboard-backend/services/shipping-service => ../shipping-service
+
 replace github.com/himdhiman/dashboard-backend/libs/logger => ../../libs/logger
 
 replace github.com/himdhiman/dashboard-backend/libs/task => ../../libs/task
@@ -101,3 +105,4 @@ replace github.com/himdhiman/dashboard-backend/libs/conflux => ../../libs/conflu
 replace github.com/himdhiman/dashboard-backend/libs/scheduler => ../../libs/scheduler
 
 replace github.com/himdhiman/dashboard-backend/libs/constants => ../../libs/constants
+

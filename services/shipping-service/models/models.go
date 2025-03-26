@@ -1,23 +1,29 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/himdhiman/dashboard-backend/libs/mongo"
+)
 
 type ShippingProvider struct {
-	ProviderName string `json:"providerName" bson:"providerName" validate:"required"`
-	ProviderCode string `json:"providerCode" bson:"providerCode" validate:"required"`
+	ID           mongo.ObjectID `json:"id" bson:"_id"`
+	VendorName   string         `json:"vendorName" bson:"vendorName" validate:"required"`
+	WeightPerKg  float64        `json:"weightPerKg" bson:"weightPerKg" validate:"required,min=0"`
+	PaymentTerms string         `json:"paymentTerms" bson:"paymentTerms" validate:"required"`
+	DeliveryTAT  string         `json:"deliveryTAT" bson:"deliveryTAT" validate:"required,min=0"`
 }
 
-type ShippingMarkProduct struct {
-}
-
-type ShippingMarkDetails struct {
-	ShippingMark           string           `json:"shippingMark" bson:"shippingMark" validate:"required"`
-	NumberOfCartons        int              `json:"numberOfCartons" bson:"numberOfCartons" validate:"min=1"`
-	Weight                 float64          `json:"weight" bson:"weight" validate:"min=0"`
-	PackingList            string           `json:"packingList" bson:"packingList"`
-	ShippingProvider       ShippingProvider `json:"shippingProvider" bson:"shippingProvider"`
-	DispatchDate           time.Time        `json:"dispatchDate" bson:"dispatchDate"`
-	WarehouseRecievingDate time.Time        `json:"warehouseRecievingDate" bson:"warehouseRecievingDate"`
-	FlightNumber           string           `json:"flightNumber" bson:"flightNumber"`
-	DeliveryDate           time.Time        `json:"deliveryDate" bson:"deliveryDate"`
+type ShippingMark struct {
+	ID                     mongo.ObjectID `json:"id" bson:"_id"`
+	ShippingMark           string         `json:"shippingMark" bson:"shippingMark" validate:"required"`
+	NumberOfCartons        float64            `json:"numberOfCartons" bson:"numberOfCartons"`
+	Weight                 float64        `json:"weight" bson:"weight"`
+	PackingList            string         `json:"packingList" bson:"packingList"`
+	ShippingProvider       string         `json:"shippingProvider" bson:"shippingProvider"`
+	DispatchDate           time.Time      `json:"dispatchDate" bson:"dispatchDate"`
+	WarehouseRecievingDate time.Time      `json:"warehouseRecievingDate" bson:"warehouseRecievingDate"`
+	FlightNumber           string         `json:"flightNumber" bson:"flightNumber"`
+	DeliveryDate           time.Time      `json:"deliveryDate" bson:"deliveryDate"`
+	Status                 string         `json:"status" bson:"status" validate:"required,oneof=InTransit RecievedByWH FlightBoarded Delivered"`
 }
