@@ -60,7 +60,7 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 
 	// Map the DTO to the model
 	var purchaseOrder models.PurchaseOrder
-	err := s.Mapper.Decode(purchaseOrderDTO, &purchaseOrder)
+	err := s.Mapper.DecodeWithCustomHook(purchaseOrderDTO, &purchaseOrder, mappers.DecodeTimeHookFunc())
 	if err != nil {
 		s.Logger.Error("Error mapping DTO to model", "correlationID", correlationID, "error", err)
 		return nil, err
