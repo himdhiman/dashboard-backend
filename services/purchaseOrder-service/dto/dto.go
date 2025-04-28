@@ -34,9 +34,17 @@ type GetPurchaseOrderDTO struct {
 }
 
 type ListPurchaseOrdersDTO struct {
-	ID       string `json:"id"`
-	PONumber string `json:"poNumber"`
-	Vendor   string `json:"vendor"`
+	ID                    string  `json:"id"`
+	PONumber              string  `json:"poNumber"`
+	Vendor                string  `json:"vendor"`
+	TotalSKUs             int     `json:"totalSKUs"`
+	TotalUnits            int     `json:"totalUnits"`
+	TotalRMBCost          float64 `json:"totalRMBCost"`
+	OrderStatus           string  `json:"orderStatus"`
+	TentativeDispatchDate string  `json:"tentativeDispatchDate"`
+	ShipmentStatus        string  `json:"shipmentStatus"`
+	Remarks               string  `json:"remarks"`
+	OrderType             string  `json:"orderType"`
 }
 
 type PurchaseOrderProductDTO struct {

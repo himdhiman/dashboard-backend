@@ -211,7 +211,7 @@ func (s *PurchaseOrderService) ListPurchaseOrders(ctx context.Context, poNumber 
 
 	var purchaseOrdersDTO []dto.ListPurchaseOrdersDTO
 
-	err = s.Mapper.DecodeWithCustomHook(purchaseOrders, &purchaseOrdersDTO, mappers.DecodeObjectIDHookFunc())
+	err = s.Mapper.DecodeWithCustomHook(purchaseOrders, &purchaseOrdersDTO, mappers.DecodeObjectIDHookFunc(), mappers.EncodeTimeToStringHookFunc())
 	if err != nil {
 		s.Logger.Error("Error decoding purchase orders", "correlationID", correlationID, "error", err)
 		return nil, 0, err
