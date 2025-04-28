@@ -17,7 +17,7 @@ type ShippingProvider struct {
 type ShippingMark struct {
 	ID                     mongo.ObjectID `json:"id" bson:"_id"`
 	ShippingMark           string         `json:"shippingMark" bson:"shippingMark" validate:"required"`
-	NumberOfCartons        float64            `json:"numberOfCartons" bson:"numberOfCartons"`
+	NumberOfCartons        float64        `json:"numberOfCartons" bson:"numberOfCartons"`
 	Weight                 float64        `json:"weight" bson:"weight"`
 	PackingList            string         `json:"packingList" bson:"packingList"`
 	ShippingProvider       string         `json:"shippingProvider" bson:"shippingProvider"`
@@ -26,4 +26,6 @@ type ShippingMark struct {
 	FlightNumber           string         `json:"flightNumber" bson:"flightNumber"`
 	DeliveryDate           time.Time      `json:"deliveryDate" bson:"deliveryDate"`
 	Status                 string         `json:"status" bson:"status" validate:"required,oneof=InTransit RecievedByWH FlightBoarded Delivered"`
+	InrConversionRate      float64        `json:"inrConversionRate" bson:"inrConversionRate" validate:"gte=0"`
+	InternalLogisticsCost  float64        `json:"internalLogisticsCost" bson:"internalLogisticsCost" validate:"gte=0"`
 }
