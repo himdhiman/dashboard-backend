@@ -6,6 +6,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/mongo/errors"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/mappers"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
+	"github.com/himdhiman/dashboard-backend/libs/mongo/helpers"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,6 +21,7 @@ type IRepository[T any] interface {
 	Find(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) ([]*T, error)
 	FindOne(ctx context.Context, filter map[string]interface{}, opts ...*models.FindOptions) (*T, error)
 	Update(ctx context.Context, filter map[string]interface{}, update interface{}) (*models.UpdateResult, error)
+	UpdateWithMethod(ctx context.Context, filter map[string]interface{}, update map[string]interface{}) (*models.UpdateResult, error)
 	Delete(ctx context.Context, filter map[string]interface{}) (int64, error)
 	Count(ctx context.Context, filter map[string]interface{}) (int64, error)
 }
@@ -132,6 +134,54 @@ func (r *Repository[T]) Update(ctx context.Context, filter map[string]interface{
 		return nil, errors.ErrUpdateFailed
 	}
 	return mappers.MapUpdateResult(result), nil
+}
+
+// Update updates documents matching the filter
+func (r *Repository[T]) UpdateWithMethod(ctx context.Context, filter map[string]interface{}, update map[string]interface{}) (*models.UpdateResult, error) {
+    bsonFilters := mappers.MapToBson(filter)
+
+	// Convert string values to ObjectID where applicable
+    for key, value := range update {
+        if key[0] == '$' { // Check if the key is a MongoDB operator (e.g., $set, $pull, $push)
+            operatorMap, ok := value.(map[string]interface{})
+            if ok {
+                for field, fieldValue := range operatorMap {
+                    // Convert string to ObjectID if the fieldValue is a string and looks like an ObjectID
+                    if strValue, isString := fieldValue.(string); isString {
+                        objID, err := primitive.ObjectIDFromHex(strValue)
+                        if err == nil { // Only replace if the string is a valid ObjectID
+                            operatorMap[field] = objID
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Check if the update map contains MongoDB operators (e.g., $set, $push, $pull)
+    containsOperator := false
+    for key := range update {
+        if len(key) > 0 && key[0] == '$' {
+            containsOperator = true
+            break
+        }
+    }
+
+    var updateDoc bson.M
+    if containsOperator {
+        // Use the update map as-is if it contains MongoDB operators
+        updateDoc = bson.M(update)
+    } else {
+        // Default to $set if no operators are detected
+        updateDoc = helpers.SetUpdate(update)
+    }
+
+    // Perform the update operation
+    result, err := r.Collection.Collection.UpdateMany(ctx, bsonFilters, updateDoc)
+    if err != nil {
+        return nil, errors.ErrUpdateFailed
+    }
+    return mappers.MapUpdateResult(result), nil
 }
 
 // Delete removes documents matching the filter

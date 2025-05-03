@@ -42,6 +42,15 @@ func NewObjectID() primitive.ObjectID {
 	return primitive.NewObjectID()
 }
 
+// convert string to ObjectID
+func StringToObjectID(id string) (primitive.ObjectID, error) {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return primitive.NilObjectID, fmt.Errorf("invalid ObjectID: %w", err)
+	}
+	return objectID, nil
+}
+
 // NewMongoClient initializes the MongoDB connection and returns a MongoClient instance
 func NewMongoClient(config *models.Config, logger logger.ILogger) (IMongoClient, error) {
 	client := &MongoClient{Logger: logger}

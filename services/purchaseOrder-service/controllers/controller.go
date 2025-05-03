@@ -279,7 +279,14 @@ func (poc *PurchaseOrderController) DeletePurchaseOrderProduct(c *gin.Context) {
 		return
 	}
 
-	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, productID)
+	poID := c.DefaultQuery("poID", "")
+	if poID == "" {
+		poc.Logger.Error("Missing purchase order ID", "correlationID", correlationID)
+		poc.respondWithError(c, http.StatusBadRequest, "Missing purchase order ID", nil)
+		return
+	}
+
+	err := poc.Service.DeleteProductFromPurchaseOrder(ctx, productID, poID)
 	if err != nil {
 		poc.Logger.Error("Error deleting product from purchase order", "error", err, "correlationID", correlationID)
 		poc.respondWithError(c, http.StatusBadRequest, "Failed to delete product from purchase order", err.Error())

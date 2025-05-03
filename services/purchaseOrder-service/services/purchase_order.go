@@ -13,6 +13,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/mappers"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	mongo_errors "github.com/himdhiman/dashboard-backend/libs/mongo/errors"
+	mongo_helper "github.com/himdhiman/dashboard-backend/libs/mongo/helpers"
 	mongo_models "github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	"github.com/himdhiman/dashboard-backend/libs/task"
@@ -86,7 +87,7 @@ func (s *PurchaseOrderService) CreatePurchaseOrder(ctx context.Context, purchase
 		return nil, err
 	}
 
-	// Determine the next order number
+	// Determine the next order numberhttps://www.youtube.com/watch?v=mOZ8QWBtw6Q
 	var nextOrderNumber int
 	if lastOrder != nil {
 		re := regexp.MustCompile(`\d+$`)
@@ -607,13 +608,22 @@ func (s *PurchaseOrderService) updateShippingStatus(ctx context.Context, purchas
 	return nil
 }
 
-func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, productID string) error {
+func (s *PurchaseOrderService) DeleteProductFromPurchaseOrder(ctx context.Context, productID string, poID string) error {
 	correlationID := ctx.Value(constants.CorrelationID).(string)
 	s.Logger.Info("Deleting product from purchase order", "correlationID", correlationID)
 
 	_, err := s.PurchaseOrderProductsRepository.Delete(ctx, map[string]interface{}{"_id": productID})
 	if err != nil {
 		s.Logger.Error("Error deleting product from purchase order", "correlationID", correlationID, "error", err)
+		return err
+	}
+
+	// remove the product ID from the purchase order products array
+
+	update := mongo_helper.PullUpdate("products", productID)
+	_, err = s.PurchaseOrderRepository.UpdateWithMethod(ctx, map[string]interface{}{"_id": poID}, update)
+	if err != nil {
+		s.Logger.Error("Error removing product ID from purchase order", "correlationID", correlationID, "error", err)
 		return err
 	}
 

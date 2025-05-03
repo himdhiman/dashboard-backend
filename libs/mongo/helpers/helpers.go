@@ -20,3 +20,16 @@ func IsValidCollectionName(name string) bool {
 	invalidChars := regexp.MustCompile(`[$]`)
 	return !invalidChars.MatchString(name)
 }
+
+
+func SetUpdate(fields map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{"$set": fields}
+}
+
+func PullUpdate(field string, value interface{}) map[string]interface{} {
+	return map[string]interface{}{"$pull": map[string]interface{}{field: value}}
+}
+
+func PushUpdate(field string, value interface{}) map[string]interface{} {
+	return map[string]interface{}{"$push": map[string]interface{}{field: value}}
+}
