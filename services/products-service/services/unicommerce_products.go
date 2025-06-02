@@ -13,27 +13,29 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/cache"
 	conflux_client "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/client"
 	conflux_models "github.com/himdhiman/dashboard-backend/libs/conflux/pkg/models"
+	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/repository"
 	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/products-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/products-service/models"
 )
 
 type UnicommerceProductsService struct {
-	ServiceCode        string
-	Logger             logger.ILogger
-	Cache              cache.Cacher
-	ApiClient          *conflux_client.ConfluxAPIClient
-	ProductsRepository *repository.Repository[models.Product]
+	ServiceCode          string
+	Logger               logger.ILogger
+	Cache                cache.Cacher
+	UnicommerceApiClient *conflux_client.ConfluxAPIClient
+	ProductsRepository   *repository.Repository[models.Product]
 }
 
 func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product]) *UnicommerceProductsService {
 	return &UnicommerceProductsService{
-		ServiceCode:        products_constants.SERVICE_CODE,
-		Logger:             logger,
-		Cache:              cache,
-		ApiClient:          apiClient,
-		ProductsRepository: productsRepository,
+		ServiceCode:          products_constants.SERVICE_CODE,
+		Logger:               logger,
+		Cache:                cache,
+		UnicommerceApiClient: apiClient,
+		ProductsRepository:   productsRepository,
 	}
 }
 
@@ -65,6 +67,56 @@ type ExportJobStatusResponse struct {
 	FilePath   string `json:"filePath"`
 }
 
+func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Context, data dto.ProductPayloadDTO) error {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Creating purchase order", "correlationID", correlationID)
+
+	var payload models.UnicommerceInventoryAdjustmentRequest
+	payload.InventoryAdjustments = []models.UnicommerceInventoryAdjustment{
+		{
+			ItemSKU:   data.Data.SKU,
+			Quantity:  data.Data.Quantity,
+			ShelfCode: data.Data.ShelfNumber,
+			AdjustmentType: func() string {
+				if data.SheetName == "Sale" {
+					return "REMOVE"
+				}
+				return "ADD"
+			}(),
+			Remarks:      data.Data.Remarks,
+			FacilityCode: "salty",
+		},
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		s.Logger.Error("Error encoding payload for token request", "error", err)
+		return err
+	}
+
+	resp, err := s.UnicommerceApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+		ApiCode: products_constants.API_CODE_ADJUST_INVENTORY,
+		Headers: headers,
+		Body:    strings.NewReader(string(payloadBytes)),
+	})
+
+	if resp.StatusCode == http.StatusForbidden {
+		s.Logger.Error("Received 403 Forbidden", "responseBody", string(resp.Body))
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		s.Logger.Error("Error creating export job", "status", resp.StatusCode)
+		return err
+	}
+
+	return nil
+
+}
+
 func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*ExportJobResponse, error) {
 	payload := &ExportJobPayload{
 		ExportJobTypeName: "Item Master",
@@ -85,7 +137,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 		"Facility":     "salty",
 	}
 
-	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+	resp, err := s.UnicommerceApiClient.DoRequest(ctx, &conflux_models.APIRequest{
 		ApiCode: products_constants.API_CODE_UNICOM_CREATE_JOB,
 		Headers: headers,
 		Body:    strings.NewReader(string(payloadBytes)),
@@ -239,7 +291,7 @@ func (s *UnicommerceProductsService) getExportJobStatus(ctx context.Context, exp
 		"Content-Type": "application/json",
 	}
 
-	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
+	resp, err := s.UnicommerceApiClient.DoRequest(ctx, &conflux_models.APIRequest{
 		ApiCode: products_constants.API_CODE_UNICOM_EXPORT_JOB_STATUS,
 		Headers: headers,
 		Body:    strings.NewReader(string(payloadBytes)),

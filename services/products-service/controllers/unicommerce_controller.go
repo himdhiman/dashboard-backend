@@ -8,6 +8,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
+	"github.com/himdhiman/dashboard-backend/services/products-service/dto"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
@@ -46,4 +47,32 @@ func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"job_code": job.JobCode})
+}
+
+// AdjustUnicommerceInventory handles the adjustment of Unicommerce inventory based on the provided data.
+func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+	var data dto.ProductPayloadDTO
+	if err := c.ShouldBindJSON(&data); err != nil {
+		uc.Logger.Error("Error binding JSON", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format"})
+		return
+	}
+
+	err := uc.Service.AdjustUnicommerceInventory(ctx, data)
+	if err != nil {
+		uc.Logger.Error("Error adjusting Unicommerce inventory", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to adjust inventory"})
+		return
+	}
+
+	uc.Logger.Info("Received export data", "data", data)
+	c.JSON(http.StatusOK, gin.H{"message": "Data received successfully"})
 }

@@ -208,6 +208,8 @@ func (m *MemoryCache) SetNX(ctx context.Context, key string, value interface{}, 
 	return true, nil
 }
 
+// GetSet atomically sets a new value and returns the old value
+// Note: This is a simplified version and does not handle expiration
 func (m *MemoryCache) GetSet(ctx context.Context, key string, value interface{}, result interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

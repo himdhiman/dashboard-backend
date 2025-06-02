@@ -14,6 +14,7 @@ type ListShippingMarksDTO struct {
 	TotalUnits             int     `json:"totalUnits"`
 	TotalRMBCost           float64 `json:"totalRMBCost"`
 	TotalINRCost           float64 `json:"totalINRCost"`
+	Status                 string  `json:"status"`
 }
 
 type ShippingMarkProductDTO struct {

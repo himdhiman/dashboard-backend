@@ -21,6 +21,7 @@ func AddProductsRoutes(router *gin.Engine, logger logger.ILogger, productsServic
 	router.POST("/search-products", productsController.SearchProduct)
 
 	router.POST("/unicommerce/create/job", unicommerceController.CreateExportJob)
+	router.POST("/unicommerce/adjust/inventory", unicommerceController.AdjustUnicommerceInventory)
 
 	return router
 }

@@ -42,6 +42,13 @@
         "method": "POST",
         "rate_limit": 5,
         "timeout": 5000
+      },
+      {
+        "code": "ADJUST_INVENTORY",
+        "path": "/services/rest/v1/inventory/adjust/bulk",
+        "method": "POST",
+        "rate_limit": 5,
+        "timeout": 5000
       }
     ]
   }

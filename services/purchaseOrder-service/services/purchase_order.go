@@ -314,7 +314,7 @@ func (s *PurchaseOrderService) AddProductToPurchaseOrder(ctx context.Context, pu
 
 	// Map the DTO to the model
 	var product models.PurchaseOrderProducts
-	err := s.Mapper.Decode(req, &product)
+	err := s.Mapper.DecodeWithCustomHook(req, &product, mappers.DecodeTimeHookFunc())
 	if err != nil {
 		s.Logger.Error("Error mapping DTO to model", "correlationID", correlationID, "error", err)
 		return nil, err
