@@ -74,9 +74,10 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 	var payload models.UnicommerceInventoryAdjustmentRequest
 	payload.InventoryAdjustments = []models.UnicommerceInventoryAdjustment{
 		{
-			ItemSKU:   data.Data.SKU,
-			Quantity:  data.Data.Quantity,
-			ShelfCode: data.Data.ShelfNumber,
+			ItemSKU:       data.Data.SKU,
+			Quantity:      data.Data.Quantity,
+			ShelfCode:     data.Data.ShelfNumber,
+			InventoryType: "GOOD_INVENTORY",
 			AdjustmentType: func() string {
 				if data.SheetName == "Sale" {
 					return "REMOVE"
@@ -110,6 +111,7 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 
 	if resp.StatusCode != http.StatusOK {
 		s.Logger.Error("Error creating export job", "status", resp.StatusCode)
+		s.Logger.Error("Response body", "responseBody", string(resp.Body))
 		return err
 	}
 
