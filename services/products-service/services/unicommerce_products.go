@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -95,7 +96,7 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		s.Logger.Error("Error encoding payload for token request", "error", err)
+		s.Logger.Error("Error encoding payload for token request", "error", err, "correlationID", correlationID)
 		return err
 	}
 
@@ -105,16 +106,49 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 		Body:    strings.NewReader(string(payloadBytes)),
 	})
 
-	if resp.StatusCode == http.StatusForbidden {
-		s.Logger.Error("Received 403 Forbidden", "responseBody", string(resp.Body))
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		s.Logger.Error("Error creating export job", "status", resp.StatusCode)
-		s.Logger.Error("Response body", "responseBody", string(resp.Body))
+	if err != nil {
+		s.Logger.Error("Error adjusting unicommerce inventory", "error", err, "correlationID", correlationID)
 		return err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, string(resp.Body))
+	}
+
+	// Deserialize the response to model
+	var response models.UnicommerceInventoryAdjustmentResponse
+	err = json.Unmarshal(resp.Body, &response)
+	if err != nil {
+		s.Logger.Error("Error deserializing response", "error", err, "correlationID", correlationID)
+		return err
+	}
+
+	if !response.Successful {
+		s.Logger.Error("Unicommerce inventory adjustment failed", "message", response.Message, "correlationID", correlationID)
+		if len(response.Errors) > 0 {
+			s.Logger.Error("Unicommerce inventory adjustment errors", "errors", response.Errors, "correlationID", correlationID)
+		}
+		return fmt.Errorf("unicommerce inventory adjustment failed: %s", response.Message)
+	}
+	s.Logger.Info("Unicommerce inventory adjustment successful", "message", response.Message, "correlationID", correlationID)
+	// If there are warnings, log them
+	if len(response.Warnings) > 0 {
+		for _, warning := range response.Warnings {
+			s.Logger.Warn("Unicommerce inventory adjustment warning", "warning", warning.Message)
+		}
+	}
+
+	// If there are errors in the adjustment responses, log them
+	for _, adjustmentResponse := range response.InventoryAdjustmentResponses {
+		if !adjustmentResponse.Successful {
+			for _, err := range adjustmentResponse.Errors {
+				s.Logger.Error("Unicommerce inventory adjustment response error", "error", err.Message, "correlationID", correlationID)
+				return fmt.Errorf("unicommerce inventory adjustment response error: %s", err.Message)
+			}
+		}
+	}
+
+	s.Logger.Info("Unicommerce inventory adjustment completed successfully", "correlationID", correlationID)
 	return nil
 
 }
