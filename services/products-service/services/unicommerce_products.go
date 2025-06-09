@@ -70,7 +70,7 @@ type ExportJobStatusResponse struct {
 
 func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Context, data dto.ProductPayloadDTO) error {
 	correlationID := ctx.Value(constants.CorrelationID).(string)
-	s.Logger.Info("Creating purchase order", "correlationID", correlationID)
+	s.Logger.Info("Adjusting Unicommerce Inventory", "correlationID", correlationID)
 
 	var payload models.UnicommerceInventoryAdjustmentRequest
 	payload.InventoryAdjustments = []models.UnicommerceInventoryAdjustment{
@@ -124,6 +124,8 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 		s.Logger.Error("Error deserializing response", "error", err, "correlationID", correlationID)
 		return err
 	}
+
+	s.Logger.Info("Unicommerce inventory adjustment response", "response", response, "correlationID", correlationID)
 
 	if !response.Successful {
 		s.Logger.Error("Unicommerce inventory adjustment failed", "message", response.Message, "correlationID", correlationID)
