@@ -90,6 +90,8 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 		},
 	}
 
+	s.Logger.Info("Payload for unicommerce inventory adjustment", "payload", payload, "correlationID", correlationID)
+
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}

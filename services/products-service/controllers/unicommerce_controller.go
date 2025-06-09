@@ -64,6 +64,8 @@ func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
 		return
 	}
 
+	uc.Logger.Info("Adjusting Unicommerce inventory", "correlationID", correlationID, "Data Recieved", data)
+
 	err := uc.Service.AdjustUnicommerceInventory(ctx, data)
 	if err != nil {
 		uc.Logger.Error("Error adjusting Unicommerce inventory", "error", err)
