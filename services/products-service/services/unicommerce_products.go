@@ -85,7 +85,7 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 				}
 				return "ADD"
 			}(),
-			Remarks:      data.Data.Remarks,
+			Remarks:      "",
 			FacilityCode: "salty",
 		},
 	}
