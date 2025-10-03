@@ -75,17 +75,22 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 	var payload models.UnicommerceInventoryAdjustmentRequest
 	payload.InventoryAdjustments = []models.UnicommerceInventoryAdjustment{
 		{
-			ItemSKU:       data.Data.SKU,
-			Quantity:      data.Data.Quantity,
-			ShelfCode:     data.Data.ShelfNumber,
-			InventoryType: "GOOD_INVENTORY",
+			ItemSKU:   data.Data.SKU,
+			Quantity:  data.Data.Quantity,
+			ShelfCode: data.Data.ShelfNumber,
+			InventoryType: func() string {
+				if data.Data.InventoryType == "" {
+					return "GOOD_INVENTORY"
+				}
+				return data.Data.InventoryType + "_INVENTORY"
+			}(),
 			AdjustmentType: func() string {
 				if data.SheetName == "Sale" {
 					return "REMOVE"
 				}
 				return "ADD"
 			}(),
-			Remarks:      "",
+			Remarks:      data.Data.LotNumber + " - " + data.Data.Channel,
 			FacilityCode: "salty",
 		},
 	}
