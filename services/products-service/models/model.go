@@ -16,3 +16,12 @@ type Product struct {
 	CreatedAt            time.Time      `json:"createdAt" bson:"createdAt" validate:"required"`
 	UpdatedAt            time.Time      `json:"updatedAt" bson:"updatedAt" validate:"required"`
 }
+
+type ProductBundle struct {
+	ID        mongo.ObjectID `json:"id" bson:"_id"`
+	BundleSKU string         `json:"bundleSku" bson:"bundleSku" validate:"required"`
+	Name      string         `json:"name" bson:"name" validate:"required"`
+	Products  []string       `json:"products" bson:"products" validate:"required,dive,required"`
+	CreatedAt time.Time      `json:"createdAt" bson:"createdAt" validate:"required"`
+	UpdatedAt time.Time      `json:"updatedAt" bson:"updatedAt" validate:"required"`
+}

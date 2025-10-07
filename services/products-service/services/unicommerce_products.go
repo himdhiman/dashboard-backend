@@ -23,20 +23,22 @@ import (
 )
 
 type UnicommerceProductsService struct {
-	ServiceCode          string
-	Logger               logger.ILogger
-	Cache                cache.Cacher
-	UnicommerceApiClient *conflux_client.ConfluxAPIClient
-	ProductsRepository   *repository.Repository[models.Product]
+	ServiceCode               string
+	Logger                    logger.ILogger
+	Cache                     cache.Cacher
+	UnicommerceApiClient      *conflux_client.ConfluxAPIClient
+	ProductsRepository        *repository.Repository[models.Product]
+	ProductsBundlesRepository *repository.Repository[models.ProductBundle]
 }
 
-func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product]) *UnicommerceProductsService {
+func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product], productsBundlesRepository *repository.Repository[models.ProductBundle]) *UnicommerceProductsService {
 	return &UnicommerceProductsService{
-		ServiceCode:          products_constants.SERVICE_CODE,
-		Logger:               logger,
-		Cache:                cache,
-		UnicommerceApiClient: apiClient,
-		ProductsRepository:   productsRepository,
+		ServiceCode:               products_constants.SERVICE_CODE,
+		Logger:                    logger,
+		Cache:                     cache,
+		UnicommerceApiClient:      apiClient,
+		ProductsRepository:        productsRepository,
+		ProductsBundlesRepository: productsBundlesRepository,
 	}
 }
 

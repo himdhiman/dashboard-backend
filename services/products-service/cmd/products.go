@@ -40,8 +40,15 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 		return nil, err
 	}
 
+	productsBundleCollection, err := mongoClient.GetCollection(context.Background(), constants.ProductsBundlesCollection)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+		return nil, err
+	}
+	productsBundlesRepository := repository.Repository[models.ProductBundle]{Collection: productsBundleCollection}
+
 	googleSheetService := services.NewGoogleSheetsService(config.SpreadsheetID, config.SheetName, config.Credentials, logger)
-	unicommerceProductsService := services.NewUnicommerceProductsService(logger, cache, unicommerceApiClient, &productsRepository)
+	unicommerceProductsService := services.NewUnicommerceProductsService(logger, cache, unicommerceApiClient, &productsRepository, &productsBundlesRepository)
 	productsService := services.NewProductsService(unicommerceApiClient, googleSheetService, logger, cache, collection)
 
 	productsServices := routes.ProductsServices{

@@ -36,6 +36,7 @@ const (
 	ConfluxApisCollection          = "ConfluxApis"
 	UnicommerceProductsCollection  = "UnicommerceProducts"
 	ProductsSchedulersCollection   = "ProductSchedulers"
+	ProductsBundlesCollection      = "ProductBundles"
 	TaskCollection                 = "DashboardTasks"
 	PurchaseOrderCollection        = "PurchaseOrders"
 	PurchaseOrderProductCollection = "PurchaseOrderProducts"
