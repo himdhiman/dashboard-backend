@@ -34,13 +34,28 @@ func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 		return
 	}
 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
-	jobCode, cacheErr := uc.Service.FetchFromCache(ctx, products_constants.PRODUCTS_EXPORT_JOB_CODE, "")
+
+	var req struct {
+		ExportJobCode string `json:"exportJobCode" form:"exportJobCode" binding:"required"`
+	}
+	if err := c.ShouldBind(&req); err != nil || req.ExportJobCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing exportJobCode"})
+		return
+	}
+
+	// Validate export job code
+	if _, ok := products_constants.ValidExportJobCodes[req.ExportJobCode]; !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid exportJobCode"})
+		return
+	}
+
+	jobCode, cacheErr := uc.Service.FetchFromCache(ctx, req.ExportJobCode, "")
 	if cacheErr == nil && jobCode != "" {
 		c.JSON(http.StatusOK, gin.H{"message": "A job is already running"})
 		return
 	}
 
-	job, err := uc.Service.CreateProductsExportJob(ctx)
+	job, err := uc.Service.CreateExportJobByCode(ctx, req.ExportJobCode)
 	if err != nil {
 		uc.Logger.Error("Error creating export job", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create export job"})

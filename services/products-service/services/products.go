@@ -108,7 +108,7 @@ func (s *ProductsService) GetProductIDBySKUVendor(ctx context.Context, skuCode s
 		return "", nil
 	}
 
-	return products[0].ID.Hex(), nil
+	return products[0].ID, nil
 }
 
 func (s *ProductsService) UpdateInventoryFromGoogleSheet(ctx context.Context) error {

@@ -9,7 +9,6 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
-	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
@@ -17,9 +16,11 @@ type ExportJobScheduler struct {
 	scheduler *scheduler.Scheduler
 	service   *services.UnicommerceProductsService
 	logger    logger.ILogger
+	jobCodes  []string
+	cronExpr  string
 }
 
-func NewExportJobScheduler(collection *models.MongoCollection, service *services.UnicommerceProductsService, logger logger.ILogger) *ExportJobScheduler {
+func NewExportJobScheduler(collection *models.MongoCollection, service *services.UnicommerceProductsService, logger logger.ILogger, jobCodes []string, cronExpr string) *ExportJobScheduler {
 	config := scheduler.SchedulerConfig{
 		RetentionPeriod: 24 * time.Hour,
 		Collection:      collection,
@@ -30,39 +31,44 @@ func NewExportJobScheduler(collection *models.MongoCollection, service *services
 		scheduler: scheduler.NewScheduler(config),
 		service:   service,
 		logger:    logger,
+		jobCodes:  jobCodes,
+		cronExpr:  cronExpr,
 	}
 }
 
 func (e *ExportJobScheduler) Start(ctx context.Context) error {
-	config := scheduler.JobConfig{
-		Name:        "check-export-status",
-		CronExpr:    "0 */5 * * * *", // Every 30 minutes
-		Params:      map[string]interface{}{},
-		MaxRetries:  3,
-		IsRecurring: true,
-	}
-
-	e.logger.Info("Configuring scheduled job", "jobName", config.Name, "cronExpr", config.CronExpr)
-
-	err := e.scheduler.Schedule(ctx, config, func(ctx context.Context, params map[string]interface{}) error {
-		correlationID := uuid.New().String()
-		e.logger.Info("Starting scheduled job", "correlationID", correlationID)
-		ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
-
-		e.logger.Info("Calling CheckProductsExportJobStatus", "correlationID", correlationID)
-		err := e.service.CheckExportJobStatus(ctx, products_constants.PRODUCTS_EXPORT_JOB_CODE)
-		if err != nil {
-			e.logger.Error("CheckExportJobStatus failed", "correlationID", correlationID, "error", err)
-			return err
+	for _, jobCode := range e.jobCodes {
+		jobConfig := scheduler.JobConfig{
+			Name:        "check-export-status-" + jobCode,
+			CronExpr:    e.cronExpr,
+			Params:      map[string]interface{}{"exportJobCode": jobCode},
+			MaxRetries:  3,
+			IsRecurring: true,
 		}
 
-		e.logger.Info("CheckProductsExportJobStatus succeeded", "correlationID", correlationID)
-		return nil
-	})
+		e.logger.Info("Configuring scheduled job", "jobName", jobConfig.Name, "cronExpr", jobConfig.CronExpr)
 
-	if err != nil {
-		e.logger.Error("Failed to schedule export job", "error", err)
-		return err
+		err := e.scheduler.Schedule(ctx, jobConfig, func(ctx context.Context, params map[string]interface{}) error {
+			correlationID := uuid.New().String()
+			e.logger.Info("Starting scheduled job", "correlationID", correlationID)
+			ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+			exportJobCode, _ := params["exportJobCode"].(string)
+			e.logger.Info("Calling CheckExportJobStatus", "correlationID", correlationID, "exportJobCode", exportJobCode)
+			err := e.service.CheckExportJobStatus(ctx, exportJobCode)
+			if err != nil {
+				e.logger.Error("CheckExportJobStatus failed", "correlationID", correlationID, "error", err)
+				return err
+			}
+
+			e.logger.Info("CheckExportJobStatus succeeded", "correlationID", correlationID)
+			return nil
+		})
+
+		if err != nil {
+			e.logger.Error("Failed to schedule export job", "error", err)
+			return err
+		}
 	}
 
 	e.scheduler.Start()

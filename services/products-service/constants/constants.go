@@ -7,7 +7,8 @@ const (
 
 	UNICOM_API_CODE = "UNICOM_SALTY"
 
-	PRODUCTS_EXPORT_JOB_CODE = "products_export_job_code"
+	PRODUCTS_EXPORT_JOB_CODE = "products_export_job"
+	BUNDLES_EXPORT_JOB_CODE  = "bundles_export_job"
 
 	// API Codes
 	API_CODE_UNICOM_FETCH_PRODUCTS    = "FETCH_PRODUCTS"
@@ -16,3 +17,10 @@ const (
 	API_CODE_GET_INVENTORY_SNAPSHOT   = "GET_INVENTORY_SNAPSHOT"
 	API_CODE_ADJUST_INVENTORY         = "ADJUST_INVENTORY"
 )
+
+// ValidExportJobCodes is a set of allowed export job codes
+var ValidExportJobCodes = map[string]struct{}{
+	PRODUCTS_EXPORT_JOB_CODE: {},
+	BUNDLES_EXPORT_JOB_CODE:  {},
+	// add more codes here
+}

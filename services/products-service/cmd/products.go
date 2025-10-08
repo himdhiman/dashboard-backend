@@ -26,7 +26,7 @@ type ProductsServices struct {
 }
 
 func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) (*ProductsServices, error) {
-
+	// Initialize repositories, services, controllers, and routes here
 	collection, err := mongoClient.GetCollection(context.Background(), constants.UnicommerceProductsCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
@@ -61,10 +61,17 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
 
-	exportJobScheduler := schedulers.NewExportJobScheduler(schedulerCollection, unicommerceProductsService, logger)
+	jobCodes := []string{
+		products_constants.PRODUCTS_EXPORT_JOB_CODE,
+		products_constants.BUNDLES_EXPORT_JOB_CODE,
+		// Add more codes if needed
+	}
+	cronExpr := "0 */5 * * * *" // Every 5 minutes
+
+	exportJobScheduler := schedulers.NewExportJobScheduler(schedulerCollection, unicommerceProductsService, logger, jobCodes, cronExpr)
 	exportJobScheduler.Start(ctx)
 
-	// start invetory snapshot scheduler
+	// start inventory snapshot scheduler
 	inventorySnapShotScheduler := schedulers.NewInventorySnapShotScheduler(schedulerCollection, productsService, logger)
 	inventorySnapShotScheduler.Start(ctx)
 

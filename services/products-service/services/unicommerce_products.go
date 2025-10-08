@@ -51,14 +51,6 @@ type ExportJobResponse struct {
 	JobCode     string   `json:"jobCode"`
 }
 
-type ExportJobPayload struct {
-	ExportJobTypeName string      `json:"exportJobTypeName"`
-	ExportColumns     []string    `json:"exportColums"`
-	ExportFilters     interface{} `json:"exportFilters"`
-	Frequency         string      `json:"frequency"`
-	ReportName        string      `json:"reportName"`
-}
-
 type ExportJobStatusPayload struct {
 	JobCode string `json:"jobCode"`
 }
@@ -164,7 +156,17 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 
 }
 
-func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, exportJobPayload *ExportJobPayload, exportJobCode string) (*ExportJobResponse, error) {
+func (s *UnicommerceProductsService) CreateExportJobByCode(ctx context.Context, exportJobCode string) (*ExportJobResponse, error) {
+    payloadFactory, ok := ExportJobPayloadFactory[exportJobCode]
+    if !ok {
+        s.Logger.Error("No payload factory found for export job code", "exportJobCode", exportJobCode)
+        return nil, fmt.Errorf("no payload factory found for export job code: %s", exportJobCode)
+    }
+    payload := payloadFactory()
+    return s.CreateExportJob(ctx, payload, exportJobCode)
+}
+
+func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, exportJobPayload *models.ExportJobPayload, exportJobCode string) (*ExportJobResponse, error) {
 	payloadBytes, err := json.Marshal(exportJobPayload)
 	if err != nil {
 		s.Logger.Error("Error encoding payload for token request", "error", err)
@@ -207,83 +209,83 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, export
 	return &exportJobResponse, nil
 }
 
-func (s *UnicommerceProductsService) CreateProductsExportJob(ctx context.Context) (*ExportJobResponse, error) {
-	payload := &ExportJobPayload{
+func (s *UnicommerceProductsService) CreateBundlesExportJob(ctx context.Context) (*ExportJobResponse, error) {
+	payload := &models.ExportJobPayload{
 		ExportJobTypeName: "Item Master",
-		ExportColumns:     []string{"skuCode", "itemName", "imageUrl", "type", "skuType", "itemType_Primary_Vendor"},
+		ExportColumns:     []string{"skuCode", "itemType_UDF9"},
 		ExportFilters:     nil,
 		Frequency:         "ONETIME",
-		ReportName:        time.Now().Format("2006-01-02 15:04:05"),
+		ReportName:        time.Now().Format("2006-01-02 15:04:05") + "_" + products_constants.BUNDLES_EXPORT_JOB_CODE,
 	}
 
-	return s.CreateExportJob(ctx, payload, products_constants.PRODUCTS_EXPORT_JOB_CODE)
+	return s.CreateExportJob(ctx, payload, products_constants.BUNDLES_EXPORT_JOB_CODE)
 }
 
 // check the job status and spin the task to read the data from csv and save it in mongo
 func (s *UnicommerceProductsService) CheckExportJobStatus(ctx context.Context, exportJobCode string) error {
-    jobCode, err := s.FetchFromCache(ctx, exportJobCode, "")
-    if err != nil {
-        s.Logger.Error("Error fetching export job code from cache", "error", err)
-        return err
-    }
+	jobCode, err := s.FetchFromCache(ctx, exportJobCode, "")
+	if err != nil {
+		s.Logger.Error("Error fetching export job code from cache", "error", err)
+		return err
+	}
 
-    s.Logger.Info("Checking export job status", "jobCode", jobCode)
-    exportJobStatusResponse, cacheError := s.getExportJobStatus(ctx, jobCode)
-    if cacheError != nil {
-        s.Logger.Error("Error fetching export job status", "error", err)
-        return err
-    }
-    if !exportJobStatusResponse.Successful {
-        s.Logger.Error("Error fetching export job status", "message", exportJobStatusResponse.Message)
-        return err
-    }
+	s.Logger.Info("Checking export job status", "jobCode", jobCode)
+	exportJobStatusResponse, cacheError := s.getExportJobStatus(ctx, jobCode)
+	if cacheError != nil {
+		s.Logger.Error("Error fetching export job status", "error", err)
+		return err
+	}
+	if !exportJobStatusResponse.Successful {
+		s.Logger.Error("Error fetching export job status", "message", exportJobStatusResponse.Message)
+		return err
+	}
 
-    if exportJobStatusResponse.Status == "COMPLETE" {
-        fileURL := exportJobStatusResponse.FilePath
-        resp, err := http.Get(fileURL)
-        if err != nil {
-            s.Logger.Error("Error downloading file from URL", "error", err)
-            return err
-        }
-        defer resp.Body.Close()
+	if exportJobStatusResponse.Status == "COMPLETE" {
+		fileURL := exportJobStatusResponse.FilePath
+		resp, err := http.Get(fileURL)
+		if err != nil {
+			s.Logger.Error("Error downloading file from URL", "error", err)
+			return err
+		}
+		defer resp.Body.Close()
 
-        if resp.StatusCode != http.StatusOK {
-            s.Logger.Error("Error downloading file", "status", resp.StatusCode)
-            return err
-        }
+		if resp.StatusCode != http.StatusOK {
+			s.Logger.Error("Error downloading file", "status", resp.StatusCode)
+			return err
+		}
 
-        fileBytes, err := ioutil.ReadAll(resp.Body)
-        if err != nil {
-            s.Logger.Error("Error reading file content", "error", err)
-            return err
-        }
+		fileBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			s.Logger.Error("Error reading file content", "error", err)
+			return err
+		}
 
-        r := csv.NewReader(bytes.NewReader(fileBytes))
-        records, err := r.ReadAll()
-        if err != nil {
-            s.Logger.Error("Error parsing CSV file", "error", err)
-            return err
-        }
+		r := csv.NewReader(bytes.NewReader(fileBytes))
+		records, err := r.ReadAll()
+		if err != nil {
+			s.Logger.Error("Error parsing CSV file", "error", err)
+			return err
+		}
 
-        processor, ok := ExportProcessorFactory[exportJobCode]
-        if !ok {
-            s.Logger.Error("No processor found for export job code", "exportJobCode", exportJobCode)
-            return fmt.Errorf("no processor found for export job code: %s", exportJobCode)
-        }
+		processor, ok := ExportProcessorFactory[exportJobCode]
+		if !ok {
+			s.Logger.Error("No processor found for export job code", "exportJobCode", exportJobCode)
+			return fmt.Errorf("no processor found for export job code: %s", exportJobCode)
+		}
 
-        err = processor(ctx, s, records)
-        if err != nil {
-            s.Logger.Error("Error processing file for export job code", "exportJobCode", exportJobCode, "error", err)
-            return err
-        }
+		err = processor(ctx, s, records)
+		if err != nil {
+			s.Logger.Error("Error processing file for export job code", "exportJobCode", exportJobCode, "error", err)
+			return err
+		}
 
-        err = s.Cache.Delete(ctx, s.ServiceCode+":"+exportJobCode)
-        if err != nil {
-            s.Logger.Error("Error deleting export job code from cache", "error", err)
-            return err
-        }
-    }
-    return nil
+		err = s.Cache.Delete(ctx, s.ServiceCode+":"+exportJobCode)
+		if err != nil {
+			s.Logger.Error("Error deleting export job code from cache", "error", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *UnicommerceProductsService) getExportJobStatus(ctx context.Context, exportJobCode string) (*ExportJobStatusResponse, error) {
