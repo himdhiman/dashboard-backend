@@ -164,16 +164,8 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 
 }
 
-func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*ExportJobResponse, error) {
-	payload := &ExportJobPayload{
-		ExportJobTypeName: "Item Master",
-		ExportColumns:     []string{"skuCode", "itemName", "imageUrl", "type", "skuType", "itemType_Primary_Vendor"},
-		ExportFilters:     nil,
-		Frequency:         "ONETIME",
-		ReportName:        time.Now().Format("2006-01-02 15:04:05"),
-	}
-
-	payloadBytes, err := json.Marshal(payload)
+func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, exportJobPayload *ExportJobPayload, exportJobCode string) (*ExportJobResponse, error) {
+	payloadBytes, err := json.Marshal(exportJobPayload)
 	if err != nil {
 		s.Logger.Error("Error encoding payload for token request", "error", err)
 		return nil, err
@@ -206,7 +198,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 		return nil, err
 	}
 
-	err = s.Cache.Set(ctx, s.ServiceCode+":"+products_constants.EXPORT_JOB_CODE, exportJobResponse.JobCode, 0)
+	err = s.Cache.Set(ctx, s.ServiceCode+":"+exportJobCode, exportJobResponse.JobCode, 0)
 	if err != nil {
 		s.Logger.Error("Error setting export job code in cache", "error", err)
 		return nil, err
@@ -215,112 +207,83 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context) (*Expo
 	return &exportJobResponse, nil
 }
 
+func (s *UnicommerceProductsService) CreateProductsExportJob(ctx context.Context) (*ExportJobResponse, error) {
+	payload := &ExportJobPayload{
+		ExportJobTypeName: "Item Master",
+		ExportColumns:     []string{"skuCode", "itemName", "imageUrl", "type", "skuType", "itemType_Primary_Vendor"},
+		ExportFilters:     nil,
+		Frequency:         "ONETIME",
+		ReportName:        time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	return s.CreateExportJob(ctx, payload, products_constants.PRODUCTS_EXPORT_JOB_CODE)
+}
+
 // check the job status and spin the task to read the data from csv and save it in mongo
-func (s *UnicommerceProductsService) CheckExportJobStatus(ctx context.Context) error {
-	jobCode, err := s.FetchFromCache(ctx, products_constants.EXPORT_JOB_CODE, "")
-	if err != nil {
-		s.Logger.Error("Error fetching export job code from cache", "error", err)
-		return err
-	}
+func (s *UnicommerceProductsService) CheckExportJobStatus(ctx context.Context, exportJobCode string) error {
+    jobCode, err := s.FetchFromCache(ctx, exportJobCode, "")
+    if err != nil {
+        s.Logger.Error("Error fetching export job code from cache", "error", err)
+        return err
+    }
 
-	s.Logger.Info("Checking export job status", "jobCode", jobCode)
-	exportJobStatusResponse, cacheError := s.getExportJobStatus(ctx, jobCode)
-	if cacheError != nil {
-		s.Logger.Error("Error fetching export job status", "error", err)
-		return err
-	}
-	if !exportJobStatusResponse.Successful {
-		s.Logger.Error("Error fetching export job status", "message", exportJobStatusResponse.Message)
-		return err
-	}
+    s.Logger.Info("Checking export job status", "jobCode", jobCode)
+    exportJobStatusResponse, cacheError := s.getExportJobStatus(ctx, jobCode)
+    if cacheError != nil {
+        s.Logger.Error("Error fetching export job status", "error", err)
+        return err
+    }
+    if !exportJobStatusResponse.Successful {
+        s.Logger.Error("Error fetching export job status", "message", exportJobStatusResponse.Message)
+        return err
+    }
 
-	if exportJobStatusResponse.Status == "COMPLETE" {
-		// we have the file url, we can now read the file iterate over each row and save it in mongo
-		// we can use the file path to read the file
+    if exportJobStatusResponse.Status == "COMPLETE" {
+        fileURL := exportJobStatusResponse.FilePath
+        resp, err := http.Get(fileURL)
+        if err != nil {
+            s.Logger.Error("Error downloading file from URL", "error", err)
+            return err
+        }
+        defer resp.Body.Close()
 
-		// we have the aws file path, we can now read the file and save it in mongo
-		fileURL := exportJobStatusResponse.FilePath
-		resp, err := http.Get(fileURL)
-		if err != nil {
-			s.Logger.Error("Error downloading file from URL", "error", err)
-			return err
-		}
-		defer resp.Body.Close()
+        if resp.StatusCode != http.StatusOK {
+            s.Logger.Error("Error downloading file", "status", resp.StatusCode)
+            return err
+        }
 
-		if resp.StatusCode != http.StatusOK {
-			s.Logger.Error("Error downloading file", "status", resp.StatusCode)
-			return err
-		}
+        fileBytes, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+            s.Logger.Error("Error reading file content", "error", err)
+            return err
+        }
 
-		fileBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			s.Logger.Error("Error reading file content", "error", err)
-			return err
-		}
+        r := csv.NewReader(bytes.NewReader(fileBytes))
+        records, err := r.ReadAll()
+        if err != nil {
+            s.Logger.Error("Error parsing CSV file", "error", err)
+            return err
+        }
 
-		// Assuming the file is a CSV, we can parse it
-		r := csv.NewReader(bytes.NewReader(fileBytes))
-		records, err := r.ReadAll()
-		if err != nil {
-			s.Logger.Error("Error parsing CSV file", "error", err)
-			return err
-		}
+        processor, ok := ExportProcessorFactory[exportJobCode]
+        if !ok {
+            s.Logger.Error("No processor found for export job code", "exportJobCode", exportJobCode)
+            return fmt.Errorf("no processor found for export job code: %s", exportJobCode)
+        }
 
-		for _, record := range records {
-			if record[3] != "SIMPLE" {
-				continue
-			}
+        err = processor(ctx, s, records)
+        if err != nil {
+            s.Logger.Error("Error processing file for export job code", "exportJobCode", exportJobCode, "error", err)
+            return err
+        }
 
-			var skuCode, name, imageURL, primaryVendor string
-
-			skuCode = record[0]
-			name = record[1]
-			imageURL = record[2]
-			primaryVendor = record[5]
-
-			// check if already exists, the update the product
-			// we can use the skuCode and primary vendor to check if the product already exists
-
-			products, err := s.ProductsRepository.Find(ctx, map[string]interface{}{"skuCode": skuCode, "primaryVendor": primaryVendor})
-			if err != nil {
-				s.Logger.Error("Error fetching products", "error", err)
-				return err
-			}
-			if len(products) > 0 {
-				// if the product already exists, we update the product
-				// we can use the skuCode and primary vendor to update the product
-				_, err = s.ProductsRepository.Update(ctx, map[string]interface{}{"name": name, "imageUrl": imageURL, "updatedAt": time.Now()}, products[0])
-				if err != nil {
-					s.Logger.Error("Error updating product", "error", err)
-					return err
-				}
-				continue
-			}
-
-			product := models.Product{
-				SKUCode:       skuCode,
-				Name:          name,
-				ImageURL:      imageURL,
-				PrimaryVendor: primaryVendor,
-				CreatedAt:     time.Now(),
-				UpdatedAt:     time.Now(),
-			}
-
-			_, err = s.ProductsRepository.Create(ctx, &product)
-			if err != nil {
-				s.Logger.Error("Error saving product to MongoDB", "error", err)
-				return err
-			}
-		}
-
-		// we can now remove the job id from cache
-		err = s.Cache.Delete(ctx, s.ServiceCode+":"+products_constants.EXPORT_JOB_CODE)
-		if err != nil {
-			s.Logger.Error("Error deleting export job code from cache", "error", err)
-			return err
-		}
-	}
-	return nil
+        err = s.Cache.Delete(ctx, s.ServiceCode+":"+exportJobCode)
+        if err != nil {
+            s.Logger.Error("Error deleting export job code from cache", "error", err)
+            return err
+        }
+    }
+    return nil
 }
 
 func (s *UnicommerceProductsService) getExportJobStatus(ctx context.Context, exportJobCode string) (*ExportJobStatusResponse, error) {

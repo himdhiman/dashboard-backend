@@ -7,7 +7,7 @@ const (
 
 	UNICOM_API_CODE = "UNICOM_SALTY"
 
-	EXPORT_JOB_CODE = "export_job_code"
+	PRODUCTS_EXPORT_JOB_CODE = "products_export_job_code"
 
 	// API Codes
 	API_CODE_UNICOM_FETCH_PRODUCTS    = "FETCH_PRODUCTS"

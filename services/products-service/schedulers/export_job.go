@@ -9,6 +9,7 @@ import (
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo/models"
 	"github.com/himdhiman/dashboard-backend/libs/scheduler"
+	products_constants "github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 
@@ -48,14 +49,14 @@ func (e *ExportJobScheduler) Start(ctx context.Context) error {
 		e.logger.Info("Starting scheduled job", "correlationID", correlationID)
 		ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
 
-		e.logger.Info("Calling CheckExportJobStatus", "correlationID", correlationID)
-		err := e.service.CheckExportJobStatus(ctx)
+		e.logger.Info("Calling CheckProductsExportJobStatus", "correlationID", correlationID)
+		err := e.service.CheckExportJobStatus(ctx, products_constants.PRODUCTS_EXPORT_JOB_CODE)
 		if err != nil {
 			e.logger.Error("CheckExportJobStatus failed", "correlationID", correlationID, "error", err)
 			return err
 		}
 
-		e.logger.Info("CheckExportJobStatus succeeded", "correlationID", correlationID)
+		e.logger.Info("CheckProductsExportJobStatus succeeded", "correlationID", correlationID)
 		return nil
 	})
 
