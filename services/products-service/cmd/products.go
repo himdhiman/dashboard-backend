@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
 	"github.com/himdhiman/dashboard-backend/services/products-service/config"
@@ -27,7 +26,7 @@ type ProductsServices struct {
 
 func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) (*ProductsServices, error) {
 	// Initialize repositories, services, controllers, and routes here
-	collection, err := mongoClient.GetCollection(context.Background(), constants.UnicommerceProductsCollection)
+	collection, err := mongoClient.GetCollection(context.Background(), products_constants.UnicommerceProductsCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
@@ -40,15 +39,22 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 		return nil, err
 	}
 
-	productsBundleCollection, err := mongoClient.GetCollection(context.Background(), constants.ProductsBundlesCollection)
+	productsBundleCollection, err := mongoClient.GetCollection(context.Background(), products_constants.ProductsBundlesCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
 	}
 	productsBundlesRepository := repository.Repository[models.ProductBundle]{Collection: productsBundleCollection}
 
+	shelfwiseInventoryCollection, err := mongoClient.GetCollection(context.Background(), products_constants.ShelfwiseInventoryCollection)
+	if err != nil {
+		logger.Fatal("Failed to connect to Collection", "error", err)
+		return nil, err
+	}
+	shelfwiseInventoryRepository := repository.Repository[models.ShelfwiseInventory]{Collection: shelfwiseInventoryCollection}
+
 	googleSheetService := services.NewGoogleSheetsService(config.SpreadsheetID, config.SheetName, config.Credentials, logger)
-	unicommerceProductsService := services.NewUnicommerceProductsService(logger, cache, unicommerceApiClient, &productsRepository, &productsBundlesRepository)
+	unicommerceProductsService := services.NewUnicommerceProductsService(logger, cache, unicommerceApiClient, &productsRepository, &productsBundlesRepository, &shelfwiseInventoryRepository)
 	productsService := services.NewProductsService(unicommerceApiClient, googleSheetService, logger, cache, collection)
 
 	productsServices := routes.ProductsServices{
@@ -56,7 +62,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 		ProductsService:            productsService,
 	}
 
-	schedulerCollection, err := mongoClient.GetCollection(context.Background(), constants.ProductsSchedulersCollection)
+	schedulerCollection, err := mongoClient.GetCollection(context.Background(), products_constants.ProductsSchedulersCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 	}
@@ -64,6 +70,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 	jobCodes := []string{
 		products_constants.PRODUCTS_EXPORT_JOB_CODE,
 		products_constants.BUNDLES_EXPORT_JOB_CODE,
+		products_constants.SHELFWISE_INVENTORY_EXPORT_JOB_CODE,
 		// Add more codes if needed
 	}
 	cronExpr := "0 */5 * * * *" // Every 5 minutes

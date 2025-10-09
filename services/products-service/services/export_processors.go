@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,13 +66,13 @@ func BundlesExportProcessor(ctx context.Context, s *UnicommerceProductsService, 
 		}
 
 		// Split comma-separated SKUs and trim spaces
-        productList := []string{}
-        for _, p := range strings.Split(products, ",") {
-            p = strings.TrimSpace(p)
-            if p != "" {
-                productList = append(productList, p)
-            }
-        }
+		productList := []string{}
+		for _, p := range strings.Split(products, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				productList = append(productList, p)
+			}
+		}
 
 		bundles, err := s.ProductsBundlesRepository.Find(ctx, map[string]interface{}{"bundleSku": skuCode})
 		if err != nil {
@@ -91,6 +92,51 @@ func BundlesExportProcessor(ctx context.Context, s *UnicommerceProductsService, 
 			UpdatedAt: time.Now(),
 		}
 		_, err = s.ProductsBundlesRepository.Create(ctx, &bundle)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ShelfwiseInventoryExportProcessor(ctx context.Context, s *UnicommerceProductsService, records [][]string) error {
+	for i, record := range records {
+		// Skip header row
+		if i == 0 {
+			continue
+		}
+
+		facilityCode := record[0]
+		skuCode := record[1]
+		inventoryType := record[2]
+		shelf := record[3]
+		quantity, err := strconv.Atoi(record[4])
+		if err != nil {
+			return err
+		}
+
+		// Create or update shelfwise inventory
+		inventory, err := s.ShelfwiseInventoryRepository.Find(ctx, map[string]interface{}{"facilityCode": facilityCode, "skuCode": skuCode, "inventoryType": inventoryType, "shelfCode": shelf})
+		if err != nil {
+			return err
+		}
+		if len(inventory) > 0 {
+			_, err = s.ShelfwiseInventoryRepository.Update(ctx, map[string]interface{}{"inventoryType": inventoryType, "shelf": shelf, "quantity": quantity, "updatedAt": time.Now()}, inventory[0])
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		newInventory := models.ShelfwiseInventory{
+			FacilityCode:  facilityCode,
+			SKUCode:       skuCode,
+			InventoryType: inventoryType,
+			ShelfCode:     shelf,
+			Quantity:      quantity,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		_, err = s.ShelfwiseInventoryRepository.Create(ctx, &newInventory)
 		if err != nil {
 			return err
 		}

@@ -7,8 +7,17 @@ const (
 
 	UNICOM_API_CODE = "UNICOM_SALTY"
 
-	PRODUCTS_EXPORT_JOB_CODE = "products_export_job"
-	BUNDLES_EXPORT_JOB_CODE  = "bundles_export_job"
+	UnicommerceProductsCollection = "UnicommerceProducts"
+	ProductsSchedulersCollection  = "ProductSchedulers"
+	ProductsBundlesCollection     = "ProductBundles"
+	ShelfwiseInventoryCollection  = "ShelfwiseInventory"
+
+	// Job Codes
+
+	PRODUCTS_EXPORT_JOB_CODE            = "products_export_job"
+	BUNDLES_EXPORT_JOB_CODE             = "bundles_export_job"
+	SHELFWISE_INVENTORY_EXPORT_JOB_CODE = "shelfwise_inventory_export_job"
+	// Add more job codes here
 
 	// API Codes
 	API_CODE_UNICOM_FETCH_PRODUCTS    = "FETCH_PRODUCTS"
@@ -20,7 +29,8 @@ const (
 
 // ValidExportJobCodes is a set of allowed export job codes
 var ValidExportJobCodes = map[string]struct{}{
-	PRODUCTS_EXPORT_JOB_CODE: {},
-	BUNDLES_EXPORT_JOB_CODE:  {},
+	PRODUCTS_EXPORT_JOB_CODE:            {},
+	BUNDLES_EXPORT_JOB_CODE:             {},
+	SHELFWISE_INVENTORY_EXPORT_JOB_CODE: {},
 	// add more codes here
 }

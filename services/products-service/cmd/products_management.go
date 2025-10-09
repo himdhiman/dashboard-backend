@@ -3,9 +3,9 @@ package products
 import (
 	"context"
 
-	"github.com/himdhiman/dashboard-backend/libs/constants"
 	"github.com/himdhiman/dashboard-backend/libs/logger"
 	"github.com/himdhiman/dashboard-backend/libs/mongo"
+	"github.com/himdhiman/dashboard-backend/services/products-service/constants"
 	"github.com/himdhiman/dashboard-backend/services/products-service/services"
 )
 

@@ -28,5 +28,14 @@ var ExportJobPayloadFactory = map[string]ExportJobPayloadFactoryFunc{
 			ReportName:        time.Now().Format("2006-01-02 15:04:05") + "_" + products_constants.BUNDLES_EXPORT_JOB_CODE,
 		}
 	},
+	products_constants.SHELFWISE_INVENTORY_EXPORT_JOB_CODE: func() *models.ExportJobPayload {
+		return &models.ExportJobPayload{
+			ExportJobTypeName: "Shelfwise Inventory",
+			ExportColumns:     []string{"facility", "skuCode", "inventoryType", "shelf", "quantity"},
+			ExportFilters:     nil,
+			Frequency:         "ONETIME",
+			ReportName:        time.Now().Format("2006-01-02 15:04:05") + "_" + products_constants.SHELFWISE_INVENTORY_EXPORT_JOB_CODE,
+		}
+	},
 	// Add more job codes and their payload generators here
 }

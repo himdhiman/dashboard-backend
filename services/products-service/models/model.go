@@ -30,3 +30,14 @@ type ProductBundle struct {
 	CreatedAt time.Time `json:"createdAt" bson:"createdAt" validate:"required"`
 	UpdatedAt time.Time `json:"updatedAt" bson:"updatedAt" validate:"required"`
 }
+
+type ShelfwiseInventory struct {
+	ID            string    `bson:"_id,omitempty" json:"id,omitempty"`
+	FacilityCode  string    `json:"facilityCode" bson:"facilityCode" validate:"required"`
+	SKUCode       string    `json:"skuCode" bson:"skuCode" validate:"required"`
+	ShelfCode     string    `json:"shelfCode" bson:"shelfCode" validate:"required"`
+	Quantity      int       `json:"quantity" bson:"quantity" validate:"required,min=0"`
+	InventoryType string    `json:"inventoryType" bson:"inventoryType" validate:"required,oneof=GOOD_INVENTORY DAMAGED_INVENTORY" default:"GOOD_INVENTORY"`
+	CreatedAt     time.Time `json:"createdAt" bson:"createdAt" validate:"required"`
+	UpdatedAt     time.Time `json:"updatedAt" bson:"updatedAt" validate:"required"`
+}

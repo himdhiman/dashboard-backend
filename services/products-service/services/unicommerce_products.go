@@ -23,22 +23,24 @@ import (
 )
 
 type UnicommerceProductsService struct {
-	ServiceCode               string
-	Logger                    logger.ILogger
-	Cache                     cache.Cacher
-	UnicommerceApiClient      *conflux_client.ConfluxAPIClient
-	ProductsRepository        *repository.Repository[models.Product]
-	ProductsBundlesRepository *repository.Repository[models.ProductBundle]
+	ServiceCode                  string
+	Logger                       logger.ILogger
+	Cache                        cache.Cacher
+	UnicommerceApiClient         *conflux_client.ConfluxAPIClient
+	ProductsRepository           *repository.Repository[models.Product]
+	ProductsBundlesRepository    *repository.Repository[models.ProductBundle]
+	ShelfwiseInventoryRepository *repository.Repository[models.ShelfwiseInventory]
 }
 
-func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product], productsBundlesRepository *repository.Repository[models.ProductBundle]) *UnicommerceProductsService {
+func NewUnicommerceProductsService(logger logger.ILogger, cache cache.Cacher, apiClient *conflux_client.ConfluxAPIClient, productsRepository *repository.Repository[models.Product], productsBundlesRepository *repository.Repository[models.ProductBundle], shelfwiseInventoryRepository *repository.Repository[models.ShelfwiseInventory]) *UnicommerceProductsService {
 	return &UnicommerceProductsService{
-		ServiceCode:               products_constants.SERVICE_CODE,
-		Logger:                    logger,
-		Cache:                     cache,
-		UnicommerceApiClient:      apiClient,
-		ProductsRepository:        productsRepository,
-		ProductsBundlesRepository: productsBundlesRepository,
+		ServiceCode:                  products_constants.SERVICE_CODE,
+		Logger:                       logger,
+		Cache:                        cache,
+		UnicommerceApiClient:         apiClient,
+		ProductsRepository:           productsRepository,
+		ProductsBundlesRepository:    productsBundlesRepository,
+		ShelfwiseInventoryRepository: shelfwiseInventoryRepository,
 	}
 }
 
@@ -157,13 +159,13 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 }
 
 func (s *UnicommerceProductsService) CreateExportJobByCode(ctx context.Context, exportJobCode string) (*ExportJobResponse, error) {
-    payloadFactory, ok := ExportJobPayloadFactory[exportJobCode]
-    if !ok {
-        s.Logger.Error("No payload factory found for export job code", "exportJobCode", exportJobCode)
-        return nil, fmt.Errorf("no payload factory found for export job code: %s", exportJobCode)
-    }
-    payload := payloadFactory()
-    return s.CreateExportJob(ctx, payload, exportJobCode)
+	payloadFactory, ok := ExportJobPayloadFactory[exportJobCode]
+	if !ok {
+		s.Logger.Error("No payload factory found for export job code", "exportJobCode", exportJobCode)
+		return nil, fmt.Errorf("no payload factory found for export job code: %s", exportJobCode)
+	}
+	payload := payloadFactory()
+	return s.CreateExportJob(ctx, payload, exportJobCode)
 }
 
 func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, exportJobPayload *models.ExportJobPayload, exportJobCode string) (*ExportJobResponse, error) {
