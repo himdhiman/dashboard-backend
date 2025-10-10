@@ -26,12 +26,12 @@ type ProductsServices struct {
 
 func InitializeProductsService(router *gin.Engine, ctx context.Context, config *config.ProductsServiceConfig, logger logger.ILogger, cache cache.Cacher, confluxService *conflux.ConfluxService, mongoClient mongo.IMongoClient) (*ProductsServices, error) {
 	// Initialize repositories, services, controllers, and routes here
-	collection, err := mongoClient.GetCollection(context.Background(), products_constants.UnicommerceProductsCollection)
+	productsCollection, err := mongoClient.GetCollection(context.Background(), products_constants.UnicommerceProductsCollection)
 	if err != nil {
 		logger.Fatal("Failed to connect to Collection", "error", err)
 		return nil, err
 	}
-	productsRepository := repository.Repository[models.Product]{Collection: collection}
+	productsRepository := repository.Repository[models.Product]{Collection: productsCollection}
 
 	unicommerceApiClient, err := confluxService.CreateApiClient(products_constants.UNICOM_API_CODE, conflux.AuthStrategyBasic)
 	if err != nil {
@@ -55,7 +55,7 @@ func InitializeProductsService(router *gin.Engine, ctx context.Context, config *
 
 	googleSheetService := services.NewGoogleSheetsService(config.SpreadsheetID, config.SheetName, config.Credentials, logger)
 	unicommerceProductsService := services.NewUnicommerceProductsService(logger, cache, unicommerceApiClient, &productsRepository, &productsBundlesRepository, &shelfwiseInventoryRepository)
-	productsService := services.NewProductsService(unicommerceApiClient, googleSheetService, logger, cache, collection)
+	productsService := services.NewProductsService(unicommerceApiClient, googleSheetService, logger, cache, &productsRepository, &productsBundlesRepository, &shelfwiseInventoryRepository)
 
 	productsServices := routes.ProductsServices{
 		UnicommerceProductsService: unicommerceProductsService,

@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/himdhiman/dashboard-backend/libs/constants"
@@ -67,7 +66,7 @@ func (uc *UnicommerceController) CreateExportJob(c *gin.Context) {
 
 // AdjustUnicommerceInventory handles the adjustment of Unicommerce inventory based on the provided data.
 func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
-	correlationID := uc.getCorrelationID(c)
+	correlationID := getCorrelationID(c)
 	ctx := c.Request.Context()
 
 	uc.Logger.Info("Received request to adjust Unicommerce inventory", "correlationID", correlationID)
@@ -75,7 +74,7 @@ func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
 	var data dto.ProductPayloadDTO
 	if err := c.ShouldBindJSON(&data); err != nil {
 		uc.Logger.Error("Error binding JSON", "error", err)
-		uc.respondWithError(c, http.StatusBadRequest, "Invalid request data", err.Error())
+		respondWithError(c, http.StatusBadRequest, "Invalid request data", err.Error())
 		return
 	}
 
@@ -84,34 +83,10 @@ func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
 	err := uc.Service.AdjustUnicommerceInventory(ctx, data)
 	if err != nil {
 		uc.Logger.Error("Error adjusting Unicommerce inventory", "error", err)
-		uc.respondWithError(c, http.StatusBadRequest, "Failed to adjust inventory", err.Error())
+		respondWithError(c, http.StatusBadRequest, "Failed to adjust inventory", err.Error())
 		return
 	}
 
 	uc.Logger.Info("Successfully adjusted Unicommerce inventory", "correlationID", correlationID)
-	uc.respondWithSuccess(c, http.StatusOK, "Inventory adjustment successful", nil)
-}
-
-func (uc *UnicommerceController) getCorrelationID(c *gin.Context) string {
-	return strings.TrimSpace(c.GetHeader(string(constants.CorrelationID)))
-}
-
-// Helper function to respond with an error
-func (uc *UnicommerceController) respondWithError(c *gin.Context, statusCode int, message string, data interface{}) {
-	resp := &constants.APIResponse{
-		Success: false,
-		Message: message,
-		Data:    data,
-	}
-	c.JSON(statusCode, resp)
-}
-
-// Helper function to respond with success
-func (uc *UnicommerceController) respondWithSuccess(c *gin.Context, statusCode int, message string, data interface{}) {
-	resp := &constants.APIResponse{
-		Success: true,
-		Message: message,
-		Data:    data,
-	}
-	c.JSON(statusCode, resp)
+	respondWithSuccess(c, http.StatusOK, "Inventory adjustment successful", nil)
 }

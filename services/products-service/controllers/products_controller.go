@@ -84,7 +84,8 @@ func (uc *ProductsController) SearchProduct(c *gin.Context) {
 	ctx := c.Request.Context()
 	correlationID := c.GetHeader(string(constants.CorrelationID))
 	if correlationID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		uc.Logger.Error("Missing correlation ID")
+		respondWithError(c, http.StatusBadRequest, "Missing correlation ID", constants.ErrMissingCorrelationID)
 		return
 	}
 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
@@ -97,14 +98,14 @@ func (uc *ProductsController) SearchProduct(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		uc.Logger.Error("Error binding JSON", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		respondWithError(c, http.StatusBadRequest, "Invalid request data", err.Error())
 		return
 	}
 
 	products, err := uc.Service.SearchProduct(ctx, request.SKUCode, request.Name)
 	if err != nil {
 		uc.Logger.Error("Error searching products", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search products"})
+		respondWithError(c, http.StatusInternalServerError, "Failed to search products", err.Error())
 		return
 	}
 
@@ -136,5 +137,114 @@ func (uc *ProductsController) SearchProduct(c *gin.Context) {
 		response[i] = productMap
 	}
 
-	c.JSON(http.StatusOK, gin.H{"products": response})
+	respondWithSuccess(c, http.StatusOK, "Products fetched successfully", response)
 }
+
+// GetProductBundles retrieves product bundles with pagination
+func (uc *ProductsController) GetProductBundles(c *gin.Context) {
+	uc.Logger.Info("Getting product bundles")
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		uc.Logger.Error("Missing correlation ID")
+		respondWithError(c, http.StatusBadRequest, "Missing correlation ID", constants.ErrMissingCorrelationID)
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+	// Parse query parameters
+	pageNumberStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+	bundleSKU := c.DefaultQuery("bundleSku", "")
+
+	pageNumber, err := strconv.Atoi(pageNumberStr)
+	if err != nil || pageNumber < 1 {
+		pageNumber = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	// Fetch product bundles
+	bundlesPtr, total, err := uc.Service.GetProductBundles(ctx, bundleSKU, pageNumber, limit)
+	if err != nil {
+		uc.Logger.Error("Error fetching product bundles", "correlationID", correlationID, "error", err)
+		respondWithError(c, http.StatusInternalServerError, "Failed to fetch product bundles", err)
+		return
+	}
+
+	bundles := make([]models.ProductBundle, len(bundlesPtr))
+	for i, b := range bundlesPtr {
+		bundles[i] = *b
+	}
+
+	response := struct {
+		Data  []models.ProductBundle `json:"data"`
+		Total int                    `json:"total"`
+		Page  int                    `json:"page"`
+		Limit int                    `json:"limit"`
+	}{
+		Data:  bundles,
+		Total: int(total),
+		Page:  pageNumber,
+		Limit: limit,
+	}
+
+	uc.Logger.Info("Successfully fetched product bundles", "correlationID", correlationID)
+	respondWithSuccess(c, http.StatusOK, "Product bundles fetched successfully", response)
+}
+
+// func (uc *ProductsController) GetShelfwiseInventory(c *gin.Context) {
+// 	ctx := c.Request.Context()
+// 	correlationID := c.GetHeader(string(constants.CorrelationID))
+// 	if correlationID == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+// 		return
+// 	}
+// 	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+// 	// Parse query parameters
+// 	pageNumberStr := c.DefaultQuery("page", "1")
+// 	limitStr := c.DefaultQuery("limit", "10")
+// 	skuCode := c.DefaultQuery("skuCode", "")
+// 	facilityCode := c.DefaultQuery("facilityCode", "")
+
+// 	pageNumber, err := strconv.Atoi(pageNumberStr)
+// 	if err != nil || pageNumber < 1 {
+// 		pageNumber = 1
+// 	}
+
+// 	limit, err := strconv.Atoi(limitStr)
+// 	if err != nil || limit < 1 {
+// 		limit = 10
+// 	}
+
+// 	// Fetch shelfwise inventory
+// 	inventoryPtr, total, err := uc.Service.GetShelfwiseInventory(ctx, skuCode, facilityCode, pageNumber, limit)
+// 	if err != nil {
+// 		uc.Logger.Error("Error fetching shelfwise inventory", "correlationID", correlationID, "error", err)
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch shelfwise inventory"})
+// 		return
+// 	}
+
+// 	inventory := make([]models.ShelfwiseInventory, len(inventoryPtr))
+// 	for i, inv := range inventoryPtr {
+// 		inventory[i] = *inv
+// 	}
+
+// 	response := struct {
+// 		Data  []models.ShelfwiseInventory `json:"data"`
+// 		Total int                         `json:"total"`
+// 		Page  int                         `json:"page"`
+// 		Limit int                         `json:"limit"`
+// 	}{
+// 		Data:  inventory,
+// 		Total: int(total),
+// 		Page:  pageNumber,
+// 		Limit: limit,
+// 	}
+
+// 	c.JSON(http.StatusOK, response)
+// }

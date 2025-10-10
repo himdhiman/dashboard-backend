@@ -20,26 +20,28 @@ import (
 )
 
 type ProductsService struct {
-	ServiceCode        string
-	Logger             logger.ILogger
-	Cache              cache.Cacher
-	ApiClient          *conflux_client.ConfluxAPIClient
-	GoogleSheetService *GoogleSheetsService
-	ProductsRepository *repository.Repository[models.Product]
+	ServiceCode                  string
+	Logger                       logger.ILogger
+	Cache                        cache.Cacher
+	ApiClient                    *conflux_client.ConfluxAPIClient
+	GoogleSheetService           *GoogleSheetsService
+	ProductsRepository           *repository.Repository[models.Product]
+	ProductBundlesRepository     *repository.Repository[models.ProductBundle]
+	ShelfwiseInventoryRepository *repository.Repository[models.ShelfwiseInventory]
 }
 
 func NewProductsService(apiClient *conflux_client.ConfluxAPIClient, sheetService *GoogleSheetsService, logger logger.ILogger, cache cache.Cacher,
-	productsCollection *mongo_models.MongoCollection) *ProductsService {
-
-	productsRepo := repository.Repository[models.Product]{Collection: productsCollection}
+	productsRepository *repository.Repository[models.Product], productBundlesRepository *repository.Repository[models.ProductBundle], shelfwiseInventoryRepository *repository.Repository[models.ShelfwiseInventory]) *ProductsService {
 
 	return &ProductsService{
-		ServiceCode:        products_constants.UNICOM_API_CODE,
-		ApiClient:          apiClient,
-		Cache:              cache,
-		GoogleSheetService: sheetService,
-		Logger:             logger,
-		ProductsRepository: &productsRepo,
+		ServiceCode:                  products_constants.UNICOM_API_CODE,
+		ApiClient:                    apiClient,
+		Cache:                        cache,
+		GoogleSheetService:           sheetService,
+		Logger:                       logger,
+		ProductsRepository:           productsRepository,
+		ProductBundlesRepository:     productBundlesRepository,
+		ShelfwiseInventoryRepository: shelfwiseInventoryRepository,
 	}
 }
 
@@ -273,4 +275,44 @@ func (s *ProductsService) SearchProduct(ctx context.Context, skuCode string, nam
 		return nil, err
 	}
 	return products, nil
+}
+
+func (s *ProductsService) GetProductBundles(ctx context.Context, bundleSKU string, pageNumber int, rowsPerPage int) ([]*models.ProductBundle, int64, error) {
+	filter := map[string]interface{}{}
+
+	// If bundleSKU is provided, use case-insensitive substring match
+	if bundleSKU != "" {
+		// The pattern ".*<bundleSKU>.*" matches any substring
+		filter["bundleSku"] = map[string]interface{}{
+			"$regex":   ".*" + bundleSKU + ".*",
+			"$options": "i", // case-insensitive
+		}
+	}
+
+	// Ensure pageNumber is at least 1
+	if pageNumber < 1 {
+		pageNumber = 1
+	}
+	if rowsPerPage < 1 {
+		rowsPerPage = 10 // default value
+	}
+
+	findOptions := &mongo_models.FindOptions{
+		Limit: int64(rowsPerPage),
+		Skip:  int64((pageNumber - 1) * rowsPerPage),
+	}
+
+	bundles, err := s.ProductBundlesRepository.Find(ctx, filter, findOptions)
+	if err != nil {
+		s.Logger.Error("Error fetching product bundles", "error", err)
+		return nil, 0, err
+	}
+
+	count, err := s.ProductBundlesRepository.Count(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error counting product bundles", "error", err)
+		return nil, 0, err
+	}
+
+	return bundles, count, nil
 }
