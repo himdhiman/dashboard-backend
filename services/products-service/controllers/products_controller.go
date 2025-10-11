@@ -196,6 +196,38 @@ func (uc *ProductsController) GetProductBundles(c *gin.Context) {
 	respondWithSuccess(c, http.StatusOK, "Product bundles fetched successfully", response)
 }
 
+func (uc *ProductsController) GetProductBundleByID(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		uc.Logger.Error("Missing correlation ID")
+		respondWithError(c, http.StatusBadRequest, "Missing correlation ID", constants.ErrMissingCorrelationID)
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+	
+	bundleID := c.Param("id")
+	if bundleID == "" {
+		uc.Logger.Error("Missing bundle ID")
+		respondWithError(c, http.StatusBadRequest, "Missing bundle ID", "bundle ID is required")
+		return
+	}
+
+	bundle, err := uc.Service.GetProductBundleByID(ctx, bundleID)
+	if err != nil {
+		uc.Logger.Error("Error fetching product bundle", "error", err)
+		respondWithError(c, http.StatusInternalServerError, "Failed to fetch product bundle", err.Error())
+		return
+	}
+	if bundle == nil {
+		uc.Logger.Warn("Product bundle not found", "bundleID", bundleID)
+		respondWithError(c, http.StatusNotFound, "Product bundle not found", "No bundle found with the given ID")
+		return
+	}
+
+	respondWithSuccess(c, http.StatusOK, "Product bundle fetched successfully", bundle)
+}
+
 // func (uc *ProductsController) GetShelfwiseInventory(c *gin.Context) {
 // 	ctx := c.Request.Context()
 // 	correlationID := c.GetHeader(string(constants.CorrelationID))

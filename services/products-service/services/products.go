@@ -316,3 +316,24 @@ func (s *ProductsService) GetProductBundles(ctx context.Context, bundleSKU strin
 
 	return bundles, count, nil
 }
+
+func (s *ProductsService) GetProductBundleByID(ctx context.Context, bundleID string) (*models.ProductBundle, error) {
+	if bundleID == "" {
+		return nil, errors.New("bundle ID cannot be empty")
+	}
+
+	filter := map[string]interface{}{
+		"_id": bundleID,
+	}
+	bundles, err := s.ProductBundlesRepository.Find(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching product bundles", "error", err)
+		return nil, err
+	}
+
+	if len(bundles) == 0 {
+		return nil, nil
+	}
+
+	return bundles[0], nil
+}
