@@ -337,3 +337,65 @@ func (s *ProductsService) GetProductBundleByID(ctx context.Context, bundleID str
 
 	return bundles[0], nil
 }
+
+func (s *ProductsService) GetShelfwiseInventory(ctx context.Context, skuCode string, pageNumber int, rowsPerPage int) ([]*models.ShelfwiseInventory, int64, error) {
+	filter := map[string]interface{}{}
+
+	// If skuCode is provided, use case-insensitive substring match
+	if skuCode != "" {
+		filter["skuCode"] = map[string]interface{}{
+			"$regex":   ".*" + skuCode + ".*",
+			"$options": "i",
+		}
+	}
+
+	// Ensure pageNumber is at least 1
+	if pageNumber < 1 {
+		pageNumber = 1
+	}
+	if rowsPerPage < 1 {
+		rowsPerPage = 10 // default value
+	}
+
+	findOptions := &mongo_models.FindOptions{
+		Limit: int64(rowsPerPage),
+		Skip:  int64((pageNumber - 1) * rowsPerPage),
+	}
+
+	inventories, err := s.ShelfwiseInventoryRepository.Find(ctx, filter, findOptions)
+	if err != nil {
+		s.Logger.Error("Error fetching shelfwise inventory", "error", err)
+		return nil, 0, err
+	}
+
+	count, err := s.ShelfwiseInventoryRepository.Count(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error counting shelfwise inventory", "error", err)
+		return nil, 0, err
+	}
+
+	return inventories, count, nil
+}
+
+func (s* ProductsService) GetShelfwiseInventoryByID(ctx context.Context, inventoryID string) (*models.ShelfwiseInventory, error) {
+	if inventoryID == "" {
+		return nil, errors.New("inventory ID cannot be empty")
+	}
+
+	filter := map[string]interface{}{
+		"_id": inventoryID,
+	}
+	inventories, err := s.ShelfwiseInventoryRepository.Find(ctx, filter)
+	if err != nil {
+		s.Logger.Error("Error fetching shelfwise inventory", "error", err)
+		return nil, err
+	}
+
+	if len(inventories) == 0 {
+		return nil, nil
+	}
+
+	return inventories[0], nil
+}
+
+// Scheduler related functions
