@@ -87,7 +87,7 @@ func (s *UnicommerceProductsService) AdjustUnicommerceInventory(ctx context.Cont
 				return "ADD"
 			}(),
 			Remarks:      data.Data.LotNumber + " - " + data.Data.Channel,
-			FacilityCode: "salty",
+			FacilityCode: "Salty-HR11",
 		},
 	}
 
@@ -177,7 +177,7 @@ func (s *UnicommerceProductsService) CreateExportJob(ctx context.Context, export
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
-		"Facility":     "salty",
+		"Facility":     "Salty-HR11",
 	}
 
 	resp, err := s.UnicommerceApiClient.DoRequest(ctx, &conflux_models.APIRequest{
