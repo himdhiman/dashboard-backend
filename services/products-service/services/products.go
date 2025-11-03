@@ -194,7 +194,7 @@ func (s *ProductsService) GetInventorySnapshot(ctx context.Context, skus []strin
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
-		"Facility":     "Salty",
+		"Facility":     "Salty-HR11",
 	}
 
 	resp, err := s.ApiClient.DoRequest(ctx, &conflux_models.APIRequest{
@@ -377,7 +377,7 @@ func (s *ProductsService) GetShelfwiseInventory(ctx context.Context, skuCode str
 	return inventories, count, nil
 }
 
-func (s* ProductsService) GetShelfwiseInventoryByID(ctx context.Context, inventoryID string) (*models.ShelfwiseInventory, error) {
+func (s *ProductsService) GetShelfwiseInventoryByID(ctx context.Context, inventoryID string) (*models.ShelfwiseInventory, error) {
 	if inventoryID == "" {
 		return nil, errors.New("inventory ID cannot be empty")
 	}
