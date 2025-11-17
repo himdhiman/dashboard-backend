@@ -6,5 +6,6 @@ use (
 	./libs/mappers
 	./libs/supabase
 	./services/dashboard-service
+	./services/products-service
 	./services/purchaseOrder-service
 )
