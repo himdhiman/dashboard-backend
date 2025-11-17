@@ -340,3 +340,33 @@ func (s *UnicommerceProductsService) FetchFromCache(ctx context.Context, apiCode
 	}
 	return strings.Trim(value, "\""), nil
 }
+
+// CheckJobStatusByJobCode checks if a job is running or finished based on the jobCode
+// Returns "running" if job is still being processed internally, "finished" if processing is complete
+// This checks our internal processing status, not the Unicommerce API status
+func (s *UnicommerceProductsService) CheckJobStatusByJobCode(ctx context.Context, jobCode string) (string, error) {
+	correlationID := ctx.Value(constants.CorrelationID).(string)
+	s.Logger.Info("Checking internal job processing status by job code", "jobCode", jobCode, "correlationID", correlationID)
+
+	// Check all possible export job codes to find if this jobCode is still in cache
+	// The cache stores: ServiceCode:exportJobCode -> jobCode
+	// If the key exists, processing is still ongoing. If deleted, processing is finished.
+	exportJobCodes := []string{
+		products_constants.PRODUCTS_EXPORT_JOB_CODE,
+		products_constants.BUNDLES_EXPORT_JOB_CODE,
+		products_constants.SHELFWISE_INVENTORY_EXPORT_JOB_CODE,
+	}
+
+	for _, exportJobCode := range exportJobCodes {
+		cachedJobCode, err := s.FetchFromCache(ctx, exportJobCode, "")
+		if err == nil && cachedJobCode == jobCode {
+			// Found the jobCode in cache, meaning processing is still ongoing
+			s.Logger.Info("Job found in cache, processing still running", "jobCode", jobCode, "exportJobCode", exportJobCode, "correlationID", correlationID)
+			return "running", nil
+		}
+	}
+
+	// JobCode not found in any cache key, meaning processing is finished
+	s.Logger.Info("Job not found in cache, processing finished", "jobCode", jobCode, "correlationID", correlationID)
+	return "finished", nil
+}

@@ -90,3 +90,32 @@ func (uc *UnicommerceController) AdjustUnicommerceInventory(c *gin.Context) {
 	uc.Logger.Info("Successfully adjusted Unicommerce inventory", "correlationID", correlationID)
 	respondWithSuccess(c, http.StatusOK, "Inventory adjustment successful", nil)
 }
+
+// CheckJobStatus checks if a job is running or finished
+func (uc *UnicommerceController) CheckJobStatus(c *gin.Context) {
+	ctx := c.Request.Context()
+	correlationID := c.GetHeader(string(constants.CorrelationID))
+	if correlationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": constants.ErrMissingCorrelationID})
+		return
+	}
+	ctx = context.WithValue(ctx, constants.CorrelationID, correlationID)
+
+	var req struct {
+		JobCode string `json:"job_code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		uc.Logger.Error("Error binding JSON for job status check", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	status, err := uc.Service.CheckJobStatusByJobCode(ctx, req.JobCode)
+	if err != nil {
+		uc.Logger.Error("Error checking job status", "jobCode", req.JobCode, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check job status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": status})
+}
